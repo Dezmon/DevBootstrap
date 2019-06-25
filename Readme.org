@@ -1,0 +1,6 @@
+* Emacs
+* spacemacs
+* git
+* conda
+* slime
+* ssh Keys
