@@ -62,6 +62,11 @@
     git checkout develop
     ln -s  ~/Dropbox/dotFiles/dotspacemacs-tangled.el .spacemacs
   #+end_src 
+** fonts
+   #+begin_src bash 
+     git clone --depth 1 --branch release https://github.com/adobe-fonts/source-code-pro.git ~/.fonts/adobe-fonts/source-code-pro
+     fc-cache -f -v ~/.fonts/adobe-fonts/source-code-pro
+   #+end_src
 * Slime/ Common LISP 
     ;;(load (expand-file-name "~/quicklisp/slime-helper.el"))
 git clone https://github.com/slime/slime.git
