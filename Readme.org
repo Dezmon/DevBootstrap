@@ -1,6 +1,105 @@
-* Emacs
-* spacemacs
+* ssh
+  #+begin_src bash 
+    cp ~/Dropbox/keys//gitKey ~/.ssh/gitKey
+  #+end_src
+  
+  #+begin_src bash :tangle ~/.ssh/config
+    Host github.com
+     HostName github.com
+     User git
+     IdentityFile ~/.ssh/gitKey
+  #+end_src
 * git
-* conda
-* slime
-* ssh Keys
+** install
+#+begin_src bash
+    sudo apt install git
+  #+end_src
+** setup
+  #+begin_src bash
+    #set identity 
+    git config --global user.name "Douglas Perrin"
+    git config --global user.email "doug2024@gmail.com"
+  #+end_src
+* Conda
+  #+begin_src bash
+    cd /tmp
+    curl -O https://repo.anaconda.com/archive/Anaconda3-2019.03-Linux-x86_64.sh
+    bash Anaconda3-2019.03-Linux-x86_64.sh
+    source ~/.bashrc
+  #+end_src
+  #+begin_src bash
+  conda create --name emacs python=3.6 
+  #+end_src 
+
+* Emacs
+** Prepare
+  #+begin_src bash 
+    git clone -b master git://git.sv.gnu.org/emacs.git
+
+    sudo apt-get update
+    sudo apt-get install build-essential automake texinfo libjpeg-dev libncurses5-dev
+    sudo apt-get install libtiff5-dev libgif-dev libpng-dev libxpm-dev libgtk-3-dev libgnutls28-dev 
+  #+end_src
+** Build and Install  
+  #+begin_src bash
+    cd emacs/
+    ./autogen.sh 
+    ./configure 
+    make
+    src/emacs --version
+    sudo make install
+  #+end_src
+** Install Ispell
+   #+begin_src bash  
+     sudo apt install ispell
+   #+end_src
+* Spacemacs
+  #+begin_src bash
+    cd ~
+    git clone https://github.com/syl20bnr/spacemacs ~/.emacs.d
+    cd ~/.emacs.d
+    git fetch
+    git checkout develop
+    ln -s  ~/Dropbox/dotFiles/dotspacemacs-tangled.el .spacemacs
+  #+end_src 
+* Slime/ Common LISP 
+    ;;(load (expand-file-name "~/quicklisp/slime-helper.el"))
+git clone https://github.com/slime/slime.git
+
+    #+begin_src bash
+     sudo apt install sbcl sbcl-doc sbcl-source slime 
+    #+end_src
+    
+    #+begin_src bash
+      mkdir ~/quicklisp/
+      cd ~/quicklisp/
+      wget https://beta.quicklisp.org/quicklisp.lisp
+    #+end_src
+
+    #+RESULTS:
+    
+   and run the following in SBCL
+   #+begin_src lisp
+     (quicklisp-quickstart:install)
+     (ql:add-to-init-file)
+     (ql:quickload "quicklisp-slime-helper")
+   #+end_src
+   ~M-x slime~ Then test
+   #+begin_src lisp
+     (+ 1 2)
+   #+end_src
+
+   #+RESULTS:
+   : 3
+* R
+  #+begin_src bash
+    sudo apt install r-base-core 
+  #+end_src
+** for R studio 
+  #+begin_src bash
+        cd /tmp
+        wget https://download1.rstudio.org/desktop/bionic/amd64/rstudio-1.2.1335-amd64.deb
+        sudo gdebi n rstudio-1.2.1335-amd64.deb
+  #+end_src
+
+  #+RESULTS:
