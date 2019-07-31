@@ -100,6 +100,9 @@ git clone https://github.com/slime/slime.git
   #+begin_src bash
     sudo apt install r-base-core 
   #+end_src
+
+  #+RESULTS:
+
 ** for R studio 
   #+begin_src bash
         cd /tmp
@@ -108,3 +111,8 @@ git clone https://github.com/slime/slime.git
   #+end_src
 
   #+RESULTS:
+* Latex, Beamer, PDF preview in Emacs
+  #+begin_src bash
+sudo apt install ghostscript 
+sudo apt install texlive-full
+  #+end_src
