@@ -103,6 +103,14 @@ git clone https://github.com/slime/slime.git
 
   #+RESULTS:
 
+  #+begin_src R :session *R*  
+    install.packages("ggplot2")
+    install.packages("plot3D")
+
+  #+end_src
+
+  #+RESULTS:
+
 ** for R studio 
   #+begin_src bash
         cd /tmp
