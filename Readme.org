@@ -81,7 +81,6 @@ git clone https://github.com/slime/slime.git
       wget https://beta.quicklisp.org/quicklisp.lisp
     #+end_src
 
-    #+RESULTS:
     
    and run the following in SBCL
    #+begin_src lisp
@@ -96,12 +95,12 @@ git clone https://github.com/slime/slime.git
 
    #+RESULTS:
    : 3
+   
 * R
   #+begin_src bash
     sudo apt install r-base-core 
   #+end_src
 
-  #+RESULTS:
 
   #+begin_src R :session *R*  
     install.packages("ggplot2")
@@ -109,7 +108,6 @@ git clone https://github.com/slime/slime.git
 
   #+end_src
 
-  #+RESULTS:
 
 ** for R studio 
   #+begin_src bash
@@ -118,7 +116,6 @@ git clone https://github.com/slime/slime.git
         sudo gdebi n rstudio-1.2.1335-amd64.deb
   #+end_src
 
-  #+RESULTS:
 * Latex, Beamer, PDF preview in Emacs
   #+begin_src bash
 sudo apt install ghostscript 
