@@ -1,123 +1,436 @@
-* ssh
-  #+begin_src bash 
-    cp ~/Dropbox/keys//gitKey ~/.ssh/gitKey
-  #+end_src
+#+STARTUP: indent
+#+STARTUP: showstars 
+#+PROPERTY: ClearOnSave true 
+#+PROPERTY: header-args:bash  :prologue "exec 2>&1" :epilogue ":"
+#+PROPERTY: header-args :mkdirp yes
+* Configuration
+** Auto-execute
+This code block will execute all the code blocks required to get your system setup. The output of this code block will appear in the Messages buffer
+#+name: Execute-On-Load
+#+begin_src elisp :noweb yes :results output
+  ;; Setting default docker
+    (org-babel-lob-ingest "~/Dropbox/projects/CHAI/repos/CHAI-LibrayOfBabble/CHAI-Tools.org")
+    (org-sbe "CHAI-Tools_Init")
+    ;; Auto tangle and results removeal (for cleaner git diffs)
+    (org-sbe "Clear-Results-On-Save")
+    (org-sbe "Tangle-On-Save")
+    (setq-local *docker_id* "emacs_docker")
+    (setq-local *DockerFiles* "container/")
+    (setq-local *TrampPrefix* "")
+#+end_src
+ 
+** Org Code
+*** Set Tramp General targets 
+ 
+#+name:SetTrampTargetrDocker
+ #+begin_src elisp :var Location=`,*docker_id*
+  (setq-local *TrampPrefix* (concat "/docker:" Location ":/home/"))
+ #+end_src
+ 
+#+name:SetTrampTargetLocal
+ #+begin_src elisp :var Location=""
+  (setq-local *TrampPrefix* Location)
+ #+end_src
   
-  #+begin_src bash :tangle ~/.ssh/config
-    Host github.com
-     HostName github.com
-     User git
-     IdentityFile ~/.ssh/gitKey
-  #+end_src
-* git
-** install
-#+begin_src bash
-    sudo apt install git
-  #+end_src
-** setup
-  #+begin_src bash
-    #set identity 
-    git config --global user.name "Douglas Perrin"
-    git config --global user.email "doug2024@gmail.com"
-  #+end_src
-* Conda
-  #+begin_src bash
-    cd /tmp
-    curl -O https://repo.anaconda.com/archive/Anaconda3-2019.03-Linux-x86_64.sh
-    bash Anaconda3-2019.03-Linux-x86_64.sh
-    source ~/.bashrc
-  #+end_src
-  #+begin_src bash
-  conda create --name emacs python=3.6 
-  #+end_src 
-
-* Emacs
-** Prepare
-  #+begin_src bash 
-    git clone -b master git://git.sv.gnu.org/emacs.git
-
-    sudo apt-get update
-    sudo apt-get install build-essential automake texinfo libjpeg-dev libncurses5-dev
-    sudo apt-get install libtiff5-dev libgif-dev libpng-dev libxpm-dev libgtk-3-dev libgnutls28-dev 
-  #+end_src
-** Build and Install  
-  #+begin_src bash
-    cd emacs/
-    ./autogen.sh 
-    ./configure 
-    make
-    src/emacs --version
-    sudo make install
-  #+end_src
-** Install Ispell
-   #+begin_src bash  
-     sudo apt install ispell
-   #+end_src
-* Spacemacs
-  #+begin_src bash
-    cd ~
-    git clone https://github.com/syl20bnr/spacemacs ~/.emacs.d
-    cd ~/.emacs.d
-    git fetch
-    git checkout develop
-    ln -s  ~/Dropbox/dotFiles/dotspacemacs-tangled.el .spacemacs
-  #+end_src 
-** fonts
+ 
+*** Reading Container Logs  
+#+name:BashDecolor
+ #+begin_src bash :var dockerID=`,*docker_id* :results raw drawer 
+ perl -pe 's/\e\[?.*?[\@-~]//g'
+#+end_src
+#+name:DockerLog
+ #+begin_src bash :noweb yes :var dockerID=`,*docker_id* :results raw drawer 
+   docker logs $dockerID | <<BashDecolor>> | tail -n 10
+ #+end_src
+ 
+#+name:DockerLogInSession
+ #+begin_src bash :noweb yes :session DockerLog :var dockerName=`,*docker_id* :results none 
+   docker logs -f $dockerName | <<BashDecolor>>
+   #need a C-g to return, but leaves real-time loging in other buffer
+ #+end_src
+  
+** Git Ignore tangled file
+#+begin_src text :tangle .gitignore
+  .gitignore
+  container/
+  .dockerignore
+#+end_src
+* Dev Tools
+** ssh
    #+begin_src bash 
-     git clone --depth 1 --branch release https://github.com/adobe-fonts/source-code-pro.git ~/.fonts/adobe-fonts/source-code-pro
-     fc-cache -f -v ~/.fonts/adobe-fonts/source-code-pro
+     cp ~/Dropbox/keys//gitKey ~/.ssh/gitKey
    #+end_src
-* Slime/ Common LISP 
-    ;;(load (expand-file-name "~/quicklisp/slime-helper.el"))
-git clone https://github.com/slime/slime.git
+  
+   #+begin_src bash :tangle ~/.ssh/config
+     Host github.com
+      HostName github.com
+      User git
+      IdentityFile ~/.ssh/gitKey
+   #+end_src
+** git
+*** install
+ #+begin_src bash
+     sudo apt install git
+   #+end_src
+*** setup
+   #+begin_src bash
+     #set identity 
+     git config --global user.name "Douglas Perrin"
+     git config --global user.email "doug2024@gmail.com"
+   #+end_src
+** Conda
+   #+begin_src bash
+     cd /tmp
+     curl -O https://repo.anaconda.com/archive/Anaconda3-2019.03-Linux-x86_64.sh
+     bash Anaconda3-2019.03-Linux-x86_64.sh
+     source ~/.bashrc
+   #+end_src
+   #+begin_src bash
+   conda create --name emacs python=3.6 
+   #+end_src 
 
-    #+begin_src bash
-     sudo apt install sbcl sbcl-doc sbcl-source slime 
+** Emacs
+*** Prepare
+   #+begin_src bash 
+     git clone -b master git://git.sv.gnu.org/emacs.git
+
+     sudo apt-get update
+     sudo apt-get install build-essential automake texinfo libjpeg-dev libncurses5-dev
+     sudo apt-get install libtiff5-dev libgif-dev libpng-dev libxpm-dev libgtk-3-dev libgnutls28-dev 
+   #+end_src
+*** Build and Install  
+   #+begin_src bash
+     cd emacs/
+     ./autogen.sh 
+     ./configure 
+     make
+     src/emacs --version
+     sudo make install
+   #+end_src
+*** Install Ispell
+    #+begin_src bash  
+      sudo apt install ispell
     #+end_src
-    
-    #+begin_src bash
-      mkdir ~/quicklisp/
-      cd ~/quicklisp/
-      wget https://beta.quicklisp.org/quicklisp.lisp
+** Spacemacs
+   #+begin_src bash
+     cd ~
+     git clone https://github.com/syl20bnr/spacemacs ~/.emacs.d
+     cd ~/.emacs.d
+     git fetch
+     git checkout develop
+     ln -s  ~/Dropbox/dotFiles/dotspacemacs-tangled.el .spacemacs
+   #+end_src 
+*** fonts
+    #+begin_src bash 
+      git clone --depth 1 --branch release https://github.com/adobe-fonts/source-code-pro.git ~/.fonts/adobe-fonts/source-code-pro
+      fc-cache -f -v ~/.fonts/adobe-fonts/source-code-pro
     #+end_src
+** Slime/ Common LISP 
+     ;;(load (expand-file-name "~/quicklisp/slime-helper.el"))
+ git clone https://github.com/slime/slime.git
+
+     #+begin_src bash
+      sudo apt install sbcl sbcl-doc sbcl-source slime 
+     #+end_src
+    
+     #+begin_src bash
+       mkdir ~/quicklisp/
+       cd ~/quicklisp/
+       wget https://beta.quicklisp.org/quicklisp.lisp
+     #+end_src
 
     
-   and run the following in SBCL
-   #+begin_src lisp
-     (quicklisp-quickstart:install)
-     (ql:add-to-init-file)
-     (ql:quickload "quicklisp-slime-helper")
-   #+end_src
-   ~M-x slime~ Then test
-   #+begin_src lisp
-     (+ 1 2)
-   #+end_src
-
-   #+RESULTS:
-   : 3
+    and run the following in SBCL
+    #+begin_src lisp
+      (quicklisp-quickstart:install)
+      (ql:add-to-init-file)
+      (ql:quickload "quicklisp-slime-helper")
+    #+end_src
+    ~M-x slime~ Then test
+    #+begin_src lisp
+      (+ 1 2)
+    #+end_src
    
-* R
-  #+begin_src bash
-    sudo apt install r-base-core 
-  #+end_src
+** R
+   #+begin_src bash
+     sudo apt install r-base-core 
+   #+end_src
 
 
-  #+begin_src R :session *R*  
-    install.packages("ggplot2")
-    install.packages("plot3D")
+   #+begin_src R :session *R*  
+     install.packages("ggplot2")
+     install.packages("plot3D")
 
-  #+end_src
+   #+end_src
 
 
-** for R studio 
-  #+begin_src bash
-        cd /tmp
-        wget https://download1.rstudio.org/desktop/bionic/amd64/rstudio-1.2.1335-amd64.deb
-        sudo gdebi n rstudio-1.2.1335-amd64.deb
-  #+end_src
+*** for R studio 
+   #+begin_src bash
+     cd /tmp
+     wget https://download1.rstudio.org/desktop/bionic/amd64/rstudio-1.2.1335-amd64.deb
+     sudo apt install gdebi-core
+     sudo gdebi rstudio-1.2.1335-amd64.deb
+   #+end_src
 
-* Latex, Beamer, PDF preview in Emacs
-  #+begin_src bash
-sudo apt install ghostscript 
-sudo apt install texlive-full
-  #+end_src
+** Latex, Beamer, PDF preview in Emacs
+   #+begin_src bash
+ sudo apt install ghostscript 
+ sudo apt install texlive-full
+   #+end_src
+* Dockerized 
+** Dockerfile
+ #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "requirements.txt")
+#+end_src
+
+
+ #+begin_src bash :dir (concat *TrampPrefix* *DockerFiles* )
+   cp /home/dperrin/Dropbox/dotFiles/dotspacemacs-tangled.el dotspacemacs-tangled.el
+#+end_src
+
+ #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile")
+      ARG VERSION=latest
+      FROM ubuntu:$VERSION
+
+      ENV DEBIAN_FRONTEND noninteractive
+
+      # basic stuff
+      RUN echo 'APT::Get::Assume-Yes "true";' >> /etc/apt/apt.conf 
+      RUN apt-get update 
+      RUN apt-get install \
+          bash \
+          build-essential \
+          dbus-x11 \
+          fontconfig \
+          git \
+          curl \
+          gzip \
+          language-pack-en-base \
+          libgl1-mesa-glx \
+          make \
+          sudo \
+          tar \
+          unzip 
+      RUN apt-get install \
+          wget \
+          automake \
+          texinfo \
+          libjpeg-dev \
+          libncurses5-dev
+
+      RUN  git clone -b master git://git.sv.gnu.org/emacs.git
+
+      RUN apt-get install \
+          libtiff5-dev \
+          libgif-dev \
+          libpng-dev \
+          libxpm-dev \
+          libgtk-3-dev \
+          libgnutls28-dev 
+
+      RUN cd emacs/ && \
+        ./autogen.sh && \
+        ./configure
+
+      RUN cd emacs/ && \
+          make
+      RUN cd emacs/ && \
+        make install
+
+      RUN  apt-get install ispell
+      RUN  apt-get install ghostscript 
+      RUN  apt-get install texlive-full
+
+      RUN git clone https://github.com/slime/slime.git
+      RUN apt-get install sbcl sbcl-doc sbcl-source slime 
+      RUN apt-get install r-base-core 
+      RUN apt-get install gdebi-core 
+      #  install.packages("ggplot2")
+      #  install.packages("plot3D")
+      RUN cd /tmp && \
+            wget https://download1.rstudio.org/desktop/bionic/amd64/rstudio-1.2.1335-amd64.deb && \
+            gdebi rstudio-1.2.1335-amd64.deb
+    
+      COPY asEnvUser /usr/local/sbin/
+
+      # Only for sudoers
+      RUN chown root /usr/local/sbin/asEnvUser \
+          && chmod 700  /usr/local/sbin/asEnvUser
+
+      # ^^^^^^^ Those layers are shared ^^^^^^^
+
+      # Emacs
+      RUN useradd -ms /bin/bash emacs
+
+      ENV UNAME="emacser" \
+          GNAME="emacs" \
+          UHOME="/home/emacs" \
+          UID="1000" \
+          GID="1000" \
+          WORKSPACE="/mnt/workspace" \
+          SHELL="/bin/bash"
+
+      # WORKDIR "${WORKSPACE}"
+
+      USER emacs
+      WORKDIR /home/emacs
+
+
+      RUN cd ~ && \
+         git clone https://github.com/syl20bnr/spacemacs ~/.emacs.d && \
+         cd ~/.emacs.d && \
+         git fetch && \
+         git checkout develop 
+
+      RUN git clone --depth 1 --branch release https://github.com/adobe-fonts/source-code-pro.git ~/.fonts/adobe-fonts/source-code-pro && \
+         fc-cache -f -v ~/.fonts/adobe-fonts/source-code-pro
+
+      COPY dotspacemacs-tangled.el .spacemacs
+
+      RUN  mkdir ~/quicklisp/ && \
+             cd ~/quicklisp/ && \
+             wget https://beta.quicklisp.org/quicklisp.lisp
+      COPY initslime.cl quicklisp/initslime.cl
+      COPY initslime.cl quicklisp/initslime2.cl
+      RUN cd ~/quicklisp/ && \
+        sbcl --load quicklisp.lisp --script initslime.cl    
+
+         # Cleanup
+         #    && apt-get purge build-essential \
+         #    && apt-get autoremove \
+         #    && rm -rf /tmp/* /var/lib/apt/lists/* /root/.cache/*
+
+
+         # ^^^^^^^ Those layers are shared ^^^^^^^
+
+
+
+          #  WORKDIR "${WORKSPACE}"
+
+      # ENTRYPOINT ["asEnvUser"]
+       # CMD ["bash", "-c", "emacs; /bin/bash"] 
+#+end_src
+ #+begin_src bash :tangle (concat *TrampPrefix* *DockerFiles* "asEnvUser")
+#!/bin/bash
+
+## Create(if needed) this user and run command as the user:
+# ENV UNAME="emacser" \
+#     GNAME="emacs" \
+#     UHOME="/home/emacs" \
+#     UID="1000" \
+#     GID="1000" \
+#     WORKSPACE="/mnt/workspace" \
+#     SHELL="/bin/bash"
+## NOTE: ^^^^ Those are default values only in docker-emacs
+## NOTE: The user will have "no password" sudo privilege
+
+## Create user if it doesn't exists
+if ! id "${UNAME}" >/dev/null 2>&1; then
+	## Prepend the user to /etc/passwd to ensure that it will
+	## override already existing users with the same IDs
+	echo -e "${UNAME}:x:${UID}:${GID}:${UNAME},,,:${UHOME}:${SHELL}\n$(cat /etc/passwd)" > /etc/passwd
+	echo "${UNAME}::17032:0:99999:7:::" >> /etc/shadow
+fi
+
+## Make sure that user is sudoer
+if [ ! -f "/etc/sudoers.d/${UNAME}" ]; then
+	echo "${UNAME} ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/${UNAME}"
+	chmod 0440 "/etc/sudoers.d/${UNAME}"
+fi
+
+## Create user's group if it doesn't exists
+u_group=$(egrep -i "^${GNAME}" /etc/group)
+if [ $? -ne 0 ]; then
+	echo "${GNAME}:x:${GID}:${UNAME}" >> /etc/group
+elif [[ ${u_group} != *"${UNAME}"* ]]; then
+	sed -i -e "s/${u_group}/${u_group},${UNAME}/g" /etc/group
+fi
+
+## Make sure that the user owns home directory
+if [ -d "${UHOME}" ]
+then
+	home_owner="$(stat -c '%U' ${UHOME})"
+	if ! id "${home_owner}" >/dev/null 2>&1 || [ "$(id -u ${UNAME})" -ne "$(id -u ${home_owner})" ]; then
+		chown "${UID}":"${GID}" -R ${UHOME}
+	fi
+else
+	mkdir -p "${UHOME}"
+	chown "${UID}":"${GID}" "${UHOME}"
+fi
+
+mkdir -p "${WORKSPACE}"
+chown "${UID}":"${GID}" "${WORKSPACE}"
+cd "${WORKSPACE}"
+
+su-exec "${UNAME}" "$@"
+#+end_src
+
+ #+begin_src bash 
+# run emacs then commit after spacemacs has dones its set up 
+# docker commit emacs_docker emacs_ready_to_run
+#+end_src
+ #+begin_src lisp :tangle (concat *TrampPrefix* *DockerFiles* "initslime.cl")
+   #!/usr/local/bin/sbcl --script
+   (quicklisp-quickstart:install)
+   (ql:add-to-init-file)
+   (ql:quickload "quicklisp-slime-helper")
+   (quit)
+    #+end_src
+
+ #+begin_src lisp :tangle (concat *TrampPrefix* *DockerFiles* "initslime2.cl")
+   #!/usr/local/bin/sbcl --script
+   ;;; blocks a input ... gerrrr
+   (ql:add-to-init-file)
+   (ql:quickload "quicklisp-slime-helper")
+   (quit)
+    #+end_src
+** .dockerignore 
+#+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* ".dockerignore")
+Dockerfile
+.dockerignore
+#+end_src
+** Build
+#+name:DockerBuild
+#+begin_src bash :session *dcokerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :var dockerName=`,*docker_id* :results none
+  docker build -t $dockerName .
+  echo Built $dockerName
+#+end_src
+
+** Run
+ #+name:DockerRun
+ #+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
+   echo $dockerName
+   docker run --rm --name $dockerName  -d $dockerName
+   docker ps
+ #+end_src
+ 
+#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
+   echo $dockerName
+   docker run --rm --name $dockerName -p 5000:5000 --add-host=mongodb:172.22.32.1 $dockerName
+ #+end_src
+ 
+
+** Stop
+#+name:DockerStop
+#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id*
+  docker stop $dockerName
+#+end_src
+
+** Rebuild and Run 
+ 
+#+begin_src elisp
+  (org-sbe "DockerStop")
+  (org-babel-tangle)
+  (org-sbe "DockerBuild")
+  (org-sbe "DockerRun")
+#+end_src
+
+** Go
+#+call:DockerLogInSession[:session *DockerLog* :var dockerName=`,*docker_id*]() 
+
+* File Local Variables
+# This Must be at the end of the file 
+# Local Variables: 
+# eval: (org-sbe "Execute-On-Load")
+# End:
+
+#  LocalWords:  JS html CSS AWS ECS APIs Keras rabbitmq

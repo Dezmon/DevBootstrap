@@ -1,0 +1,38 @@
+
+#+STARTUP: indent
+#+STARTUP: showstars 
+#+PROPERTY: ClearOnSave true 
+#+PROPERTY: header-args:bash  :prologue "exec 2>&1" :epilogue ":"
+#+PROPERTY: header-args :mkdirp yes
+#+name: Init-Templates
+#+begin_src emacs-lisp :results none
+    ;; This is called expecitly via org-sbe in the buffer that will uses the templating
+    ;; This is where user/site specif papramters should be set. Although that could be a seperate
+    ;; seperate file locals.org as well if there are a lot of them. A third set of customistaions 
+    ;; related editor personalizations could also be added, like "personlizations.org" 
+
+    ;; general useful tools 
+    (org-babel-lob-ingest "./CHAI-LibraryOfBable/CHAI-Tools.org")
+    (org-sbe "CHAI-Tools_Init")
+    ;; Auto tangle and results removeal (for cleaner git diffs)
+    (org-sbe "Clear-Results-On-Save")
+    (org-sbe "Tangle-On-Save")
+
+
+    ;; Setting and checking local varables, having a list alows "Template-Loader.org" to be "templated"
+    ;; between users of the same projects and enforces that required locals are set. 
+    ;;;(setq-local *locals-list* nil)
+    ;; OR set required locals
+    (setq-local *locals-list* '(*TrampPrefix*)) 
+    ;; assigne values
+    (org-sbe "ConfigurationVariables")
+   
+    ;; check that all required locals got set    
+    (org-sbe "Check-Local-Variables")
+#+end_src
+
+#+name: ConfigurationVariables
+#+BEGIN_SRC elisp
+   ;; set by individual users
+  (setq-local *TrampPrefix* nil)
+  #+END_SRC
