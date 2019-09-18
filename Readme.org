@@ -14,9 +14,11 @@ This code block will execute all the code blocks required to get your system set
     ;; Auto tangle and results removeal (for cleaner git diffs)
     (org-sbe "Clear-Results-On-Save")
     (org-sbe "Tangle-On-Save")
+#+end_src
+#+begin_src elisp :noweb yes :results output
     (setq-local *docker_id* "emacs_docker")
     (setq-local *DockerFiles* "container/")
-    (setq-local *TrampPrefix* "")
+    (setq-local *TrampPrefix* "./")
 #+end_src
  
 ** Org Code
@@ -178,18 +180,10 @@ This code block will execute all the code blocks required to get your system set
  sudo apt install texlive-full
    #+end_src
 * Dockerized 
-** Dockerfile
- #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "requirements.txt")
-#+end_src
+** Dockerfiles
 
-
- #+begin_src bash :dir (concat *TrampPrefix* *DockerFiles* )
-   cp /home/dperrin/Dropbox/dotFiles/dotspacemacs-tangled.el dotspacemacs-tangled.el
-#+end_src
-
- #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile")
-      ARG VERSION=latest
-      FROM ubuntu:$VERSION
+ #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-emacs_base")
+      FROM ubuntu:18.04
 
       ENV DEBIAN_FRONTEND noninteractive
 
@@ -238,24 +232,14 @@ This code block will execute all the code blocks required to get your system set
 
       RUN  apt-get install ispell
       RUN  apt-get install ghostscript 
-      RUN  apt-get install texlive-full
+      RUN git clone --depth 1 --branch release https://github.com/adobe-fonts/source-code-pro.git ~/.fonts/adobe-fonts/source-code-pro && \
+         fc-cache -f -v ~/.fonts/adobe-fonts/source-code-pro
 
-      RUN git clone https://github.com/slime/slime.git
-      RUN apt-get install sbcl sbcl-doc sbcl-source slime 
-      RUN apt-get install r-base-core 
-      RUN apt-get install gdebi-core 
-      #  install.packages("ggplot2")
-      #  install.packages("plot3D")
-      RUN cd /tmp && \
-            wget https://download1.rstudio.org/desktop/bionic/amd64/rstudio-1.2.1335-amd64.deb && \
-            gdebi rstudio-1.2.1335-amd64.deb
-    
-      COPY asEnvUser /usr/local/sbin/
 
-      # Only for sudoers
-      RUN chown root /usr/local/sbin/asEnvUser \
-          && chmod 700  /usr/local/sbin/asEnvUser
-
+      # Cleanup
+      RUN  apt-get purge build-essential \
+             && apt-get autoremove \
+             && rm -rf /tmp/* /var/lib/apt/lists/* /root/.cache/*
       # ^^^^^^^ Those layers are shared ^^^^^^^
 
       # Emacs
@@ -274,6 +258,15 @@ This code block will execute all the code blocks required to get your system set
       USER emacs
       WORKDIR /home/emacs
 
+      CMD ["bash", "-c", "emacs; /bin/bash"] 
+#+end_src
+ #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_base")
+      FROM emacs_base
+
+      USER emacs
+      WORKDIR /home/emacs
+      
+      COPY ./dotspacemacs-tangled.el /home/emacs/.spacemacs
 
       RUN cd ~ && \
          git clone https://github.com/syl20bnr/spacemacs ~/.emacs.d && \
@@ -281,94 +274,69 @@ This code block will execute all the code blocks required to get your system set
          git fetch && \
          git checkout develop 
 
-      RUN git clone --depth 1 --branch release https://github.com/adobe-fonts/source-code-pro.git ~/.fonts/adobe-fonts/source-code-pro && \
-         fc-cache -f -v ~/.fonts/adobe-fonts/source-code-pro
-
-      COPY dotspacemacs-tangled.el .spacemacs
-
-      RUN  mkdir ~/quicklisp/ && \
-             cd ~/quicklisp/ && \
-             wget https://beta.quicklisp.org/quicklisp.lisp
-      COPY initslime.cl quicklisp/initslime.cl
-      COPY initslime.cl quicklisp/initslime2.cl
-      RUN cd ~/quicklisp/ && \
-        sbcl --load quicklisp.lisp --script initslime.cl    
-
-         # Cleanup
-         #    && apt-get purge build-essential \
-         #    && apt-get autoremove \
-         #    && rm -rf /tmp/* /var/lib/apt/lists/* /root/.cache/*
-
-
-         # ^^^^^^^ Those layers are shared ^^^^^^^
-
-
-
-          #  WORKDIR "${WORKSPACE}"
-
-      # ENTRYPOINT ["asEnvUser"]
-       # CMD ["bash", "-c", "emacs; /bin/bash"] 
-#+end_src
- #+begin_src bash :tangle (concat *TrampPrefix* *DockerFiles* "asEnvUser")
-#!/bin/bash
-
-## Create(if needed) this user and run command as the user:
-# ENV UNAME="emacser" \
-#     GNAME="emacs" \
-#     UHOME="/home/emacs" \
-#     UID="1000" \
-#     GID="1000" \
-#     WORKSPACE="/mnt/workspace" \
-#     SHELL="/bin/bash"
-## NOTE: ^^^^ Those are default values only in docker-emacs
-## NOTE: The user will have "no password" sudo privilege
-
-## Create user if it doesn't exists
-if ! id "${UNAME}" >/dev/null 2>&1; then
-	## Prepend the user to /etc/passwd to ensure that it will
-	## override already existing users with the same IDs
-	echo -e "${UNAME}:x:${UID}:${GID}:${UNAME},,,:${UHOME}:${SHELL}\n$(cat /etc/passwd)" > /etc/passwd
-	echo "${UNAME}::17032:0:99999:7:::" >> /etc/shadow
-fi
-
-## Make sure that user is sudoer
-if [ ! -f "/etc/sudoers.d/${UNAME}" ]; then
-	echo "${UNAME} ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/${UNAME}"
-	chmod 0440 "/etc/sudoers.d/${UNAME}"
-fi
-
-## Create user's group if it doesn't exists
-u_group=$(egrep -i "^${GNAME}" /etc/group)
-if [ $? -ne 0 ]; then
-	echo "${GNAME}:x:${GID}:${UNAME}" >> /etc/group
-elif [[ ${u_group} != *"${UNAME}"* ]]; then
-	sed -i -e "s/${u_group}/${u_group},${UNAME}/g" /etc/group
-fi
-
-## Make sure that the user owns home directory
-if [ -d "${UHOME}" ]
-then
-	home_owner="$(stat -c '%U' ${UHOME})"
-	if ! id "${home_owner}" >/dev/null 2>&1 || [ "$(id -u ${UNAME})" -ne "$(id -u ${home_owner})" ]; then
-		chown "${UID}":"${GID}" -R ${UHOME}
-	fi
-else
-	mkdir -p "${UHOME}"
-	chown "${UID}":"${GID}" "${UHOME}"
-fi
-
-mkdir -p "${WORKSPACE}"
-chown "${UID}":"${GID}" "${WORKSPACE}"
-cd "${WORKSPACE}"
-
-su-exec "${UNAME}" "$@"
+      CMD ["bash", "-c", "emacs; /bin/bash"] 
 #+end_src
 
- #+begin_src bash 
-# run emacs then commit after spacemacs has dones its set up 
-# docker commit emacs_docker emacs_ready_to_run
+#+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* ".dockerignore")
+Dockerfile 
+Dockerfile-spacemacs_base
+Dockerfile-emacs_basedot
+spacemacs-tangled.el
+.dockerignore
 #+end_src
- #+begin_src lisp :tangle (concat *TrampPrefix* *DockerFiles* "initslime.cl")
+** Build
+#+begin_src bash :session *dcokerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results none
+  cp Dockerfile-emacs_base Dockerfile
+  docker build -t emacs_base .
+  echo Built emacs_base
+#+end_src
+
+#+begin_src bash  :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
+  cp /home/dperrin/Dropbox/dotFiles/dotspacemacs-tangled.el dotspacemacs-tangled.el
+  cp Dockerfile-spacemacs_base Dockerfile
+  docker build -t spacemacs_base .
+#+end_src
+** helpers
+#+name:currentEmacsContainer
+#+begin_src bash :var dockerName=`,*docker_id* :results value
+  docker ps | grep emacs | awk '{ print $1 }'
+ #+end_src
+
+ #+RESULTS:
+ : f7e38adffa14
+
+#+name:commitCurrent 
+#+begin_src bash :var id=currentEmacsContainer name="not_a_name" :results raw drawer
+  docker commit $id $name
+ #+end_src
+** First Run
+#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
+  export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
+  docker run --rm --name emacs -e DISPLAY=$DISPLAY spacemacs_base
+ #+end_src
+
+Before it shutting the first run down commit the container to capture the emacs installs
+
+#+call:commitCurrent(name="spacemacs_inited") 
+ 
+#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
+  export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
+  docker run --rm --name emacs -e DISPLAY=$DISPLAY spacemacs_inited
+ #+end_src
+
+*** TODO .emacs.d should probably have the org .ele files deleted there seen to be a melpa version problem with them
+
+#+begin_src bash :results raw drawer
+ #docker login
+ docker tag $(docker images | grep spacemacs_inited | awk '{print $3}') dperrin/emacs:firsttry
+ docker push dperrin/emacs 
+ #+end_src
+
+
+** Python?
+** Latex
+** slime stuff
+ #+begin_src lisp 
    #!/usr/local/bin/sbcl --script
    (quicklisp-quickstart:install)
    (ql:add-to-init-file)
@@ -376,57 +344,13 @@ su-exec "${UNAME}" "$@"
    (quit)
     #+end_src
 
- #+begin_src lisp :tangle (concat *TrampPrefix* *DockerFiles* "initslime2.cl")
+ #+begin_src lisp 
    #!/usr/local/bin/sbcl --script
    ;;; blocks a input ... gerrrr
    (ql:add-to-init-file)
    (ql:quickload "quicklisp-slime-helper")
    (quit)
     #+end_src
-** .dockerignore 
-#+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* ".dockerignore")
-Dockerfile
-.dockerignore
-#+end_src
-** Build
-#+name:DockerBuild
-#+begin_src bash :session *dcokerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :var dockerName=`,*docker_id* :results none
-  docker build -t $dockerName .
-  echo Built $dockerName
-#+end_src
-
-** Run
- #+name:DockerRun
- #+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
-   echo $dockerName
-   docker run --rm --name $dockerName  -d $dockerName
-   docker ps
- #+end_src
- 
-#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
-   echo $dockerName
-   docker run --rm --name $dockerName -p 5000:5000 --add-host=mongodb:172.22.32.1 $dockerName
- #+end_src
- 
-
-** Stop
-#+name:DockerStop
-#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id*
-  docker stop $dockerName
-#+end_src
-
-** Rebuild and Run 
- 
-#+begin_src elisp
-  (org-sbe "DockerStop")
-  (org-babel-tangle)
-  (org-sbe "DockerBuild")
-  (org-sbe "DockerRun")
-#+end_src
-
-** Go
-#+call:DockerLogInSession[:session *DockerLog* :var dockerName=`,*docker_id*]() 
-
 * File Local Variables
 # This Must be at the end of the file 
 # Local Variables: 
