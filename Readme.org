@@ -60,10 +60,10 @@ This code block will execute all the code blocks required to get your system set
 * Dev Tools
 ** ssh
    #+begin_src bash 
-     cp ~/Dropbox/keys//gitKey ~/.ssh/gitKey
+     cp ~/Dropbox/keys/gitKey ~/.ssh/gitKey
    #+end_src
   
-   #+begin_src bash :tangle ~/.ssh/config
+   #+begin_src bash :tangle ssh-config
      Host github.com
       HostName github.com
       User git
@@ -91,6 +91,7 @@ This code block will execute all the code blocks required to get your system set
    conda create --name emacs python=3.6 
    #+end_src 
 
+** AWS CLI 
 ** Emacs
 *** Prepare
    #+begin_src bash 
@@ -189,7 +190,9 @@ This code block will execute all the code blocks required to get your system set
 
       # basic stuff
       RUN echo 'APT::Get::Assume-Yes "true";' >> /etc/apt/apt.conf 
-      RUN apt-get update 
+
+      RUN apt-get update --fix-missing
+ 
       RUN apt-get install \
           bash \
           build-essential \
@@ -206,6 +209,7 @@ This code block will execute all the code blocks required to get your system set
           unzip 
       RUN apt-get install \
           wget \
+          apt-utils \
           automake \
           texinfo \
           libjpeg-dev \
@@ -213,17 +217,18 @@ This code block will execute all the code blocks required to get your system set
 
       RUN  git clone -b master git://git.sv.gnu.org/emacs.git
 
-      RUN apt-get install \
-          libtiff5-dev \
-          libgif-dev \
-          libpng-dev \
-          libxpm-dev \
-          libgtk-3-dev \
-          libgnutls28-dev 
+      RUN apt-get install libtiff5-dev 
+      RUN apt-get install libgif-dev 
+      RUN apt-get install libpng-dev 
+      RUN apt-get install libxpm-dev 
+      RUN apt-get install libgtk-3-dev 
+      RUN apt-get install libgnutls28-dev 
+      RUN apt-get install libmagickcore-dev 
+      RUN apt-get install libmagick++-dev
 
       RUN cd emacs/ && \
         ./autogen.sh && \
-        ./configure
+        ./configure --with-imagemagick
 
       RUN cd emacs/ && \
           make
@@ -232,6 +237,7 @@ This code block will execute all the code blocks required to get your system set
 
       RUN  apt-get install ispell
       RUN  apt-get install ghostscript 
+      RUN  apt-get install imagemagick 
       RUN git clone --depth 1 --branch release https://github.com/adobe-fonts/source-code-pro.git ~/.fonts/adobe-fonts/source-code-pro && \
          fc-cache -f -v ~/.fonts/adobe-fonts/source-code-pro
 
@@ -285,7 +291,7 @@ spacemacs-tangled.el
 .dockerignore
 #+end_src
 ** Build
-#+begin_src bash :session *dcokerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results none
+#+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results none
   cp Dockerfile-emacs_base Dockerfile
   docker build -t emacs_base .
   echo Built emacs_base
