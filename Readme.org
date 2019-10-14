@@ -147,7 +147,7 @@ This code block will execute all the code blocks required to get your system set
      #+end_src
 
     
-    and run the following in SBCL
+    and run the following in SBCL (sbcl --load path/of/quicklisp.lisp)
     #+begin_src lisp
       (quicklisp-quickstart:install)
       (ql:add-to-init-file)
