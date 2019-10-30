@@ -118,13 +118,17 @@ $ aws configure
      sudo apt-get update
      sudo apt-get install build-essential automake texinfo libjpeg-dev libncurses5-dev
      sudo apt-get install libtiff5-dev libgif-dev libpng-dev libxpm-dev libgtk-3-dev libgnutls28-dev 
+      
+     sudo apt-get install libtiff5-dev libgif-dev libpng-dev libxpm-dev libgtk-3-dev libgnutls28-dev libmagickcore-dev libmagick++-dev
+
+
    #+end_src
 *** Build and Install  
    #+begin_src bash
      cd emacs/
      ./autogen.sh 
-     ./configure 
-     make
+     ./configure --with-imagemagick
+  make
      src/emacs --version
      sudo make install
    #+end_src
@@ -161,7 +165,7 @@ $ aws configure
      #+end_src
 
     
-    and run the following in SBCL
+    and run the following in SBCL (sbcl --load path/of/quicklisp.lisp)
     #+begin_src lisp
       (quicklisp-quickstart:install)
       (ql:add-to-init-file)
