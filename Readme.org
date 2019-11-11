@@ -1077,7 +1077,6 @@ docker volume rm dotEmacsDir
   docker run --rm --name emacs \
          -v /tmp/.X11-unix:/tmp/.X11-unix \
          -v /var/run/docker.sock:/var/run/docker.sock \
-         -v /etc/timezone:/etc/timezone:ro \        
          -v dotEmacsDir:/home/emacs/.emacs.d \
          -v /home/dperrin/quicklisp/:/home/emacs/quicklisp/ \
          -v /home/dperrin/Dropbox/dotFiles/dotspacemacs-tangled.el:/home/emacs/.spacemacs \
@@ -1087,6 +1086,7 @@ docker volume rm dotEmacsDir
          -v /home/dperrin/.ssh:/home/emacs/.ssh \
          -v /home/dperrin/.aws:/home/emacs/.aws \
          -u $(id -u dperrin):$(getent group docker | cut -d: -f3) \
+         -e TZ=America/New_York \
          -e DISPLAY=$DISPLAY dperrin/spacemacs_full_dev
  #+end_src
   
