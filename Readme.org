@@ -1,4 +1,3 @@
-#+STARTUP: indent
 #+STARTUP: showstars 
 #+PROPERTY: ClearOnSave true 
 #+PROPERTY: header-args :mkdirp yes
@@ -1026,11 +1025,13 @@ docker volume rm dotEmacsDir
    USER root
    RUN apt-get update
 
+
    RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install sbcl sbcl-doc sbcl-source
    RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install slime 
 
    USER emacs
    WORKDIR /home/emacs
+
    COPY FirstRunLisp.lisp FirstRunLisp.lisp  
    RUN mkdir quicklisp/
    RUN mv FirstRunLisp.lisp quicklisp/
@@ -1038,9 +1039,23 @@ docker volume rm dotEmacsDir
    RUN wget https://beta.quicklisp.org/quicklisp.lisp
    RUN git clone https://github.com/slime/slime.git
    RUN sbcl --load /home/emacs/quicklisp/quicklisp.lisp --sccript FirstRunLisp.lisp
+
+   USER root
+   RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+   RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+   RUN add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+   RUN apt-get update
+   RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install docker-ce
+
+   RUN curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+   RUN chmod +x /usr/local/bin/docker-compose  
+   #RUN ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+   RUN groupmod -g 1001 docker
+   RUN usermod -aG docker emacs 
+
+   RUN apt-get -y install jq
+   USER emacs
    WORKDIR /home/emacs
-   #RUN rm /home/emacs/.spacemacs
-   #RUN rm /home/emacs/.spacemacs.env
    CMD ["bash", "-c", "emacs; /bin/bash"] 
 #+end_src
  #+begin_src lisp :tangle (concat *TrampPrefix* *DockerFiles* "FirstRunLisp.lisp")
@@ -1055,21 +1070,26 @@ docker volume rm dotEmacsDir
   docker build -t dperrin/spacemacs_full_dev .
 #+end_src
 
-#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
+#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer :tangle ~/dockermacs :tangle-mode (identity #o700)
   export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
-  mkdir /home/dperrin/Workdir
-  sudo chmod g+w /home/dperrin/Workdir 
+  mkdir /home/dperrin/Workdir 2> /dev/null
+  chmod g+w /home/dperrin/Workdir 
   docker run --rm --name emacs \
          -v /tmp/.X11-unix:/tmp/.X11-unix \
+         -v /var/run/docker.sock:/var/run/docker.sock \
+         -v /etc/timezone:/etc/timezone:ro \        
          -v dotEmacsDir:/home/emacs/.emacs.d \
-         -v /home/dperrin/quicklisp:/home/emacs/quicklisp \
+         -v /home/dperrin/quicklisp/:/home/emacs/quicklisp/ \
          -v /home/dperrin/Dropbox/dotFiles/dotspacemacs-tangled.el:/home/emacs/.spacemacs \
          -v /home/dperrin/Workdir:/home/emacs/Workdir \
-         -v /home/dperrin/Dropbox:/home/emacs/Dropbox \
+         -v /home/dperrin/Dropbox/:/home/emacs/Dropbox/ \
+         -v /home/dperrin/.gitconfig:/home/emacs/.gitconfig \
          -v /home/dperrin/.ssh:/home/emacs/.ssh \
+         -v /home/dperrin/.aws:/home/emacs/.aws \
+         -u $(id -u dperrin):$(getent group docker | cut -d: -f3) \
          -e DISPLAY=$DISPLAY dperrin/spacemacs_full_dev
  #+end_src
-
+  
 * File Local Variables
 # This Must be at the end of the file 
 # Local Variables: 
