@@ -1,0 +1,3 @@
+[submodule "CHAI-LibraryOfBable"]
+	path = CHAI-LibraryOfBable
+	url = git@github.com:Dezmon/CHAI-LibraryOfBable.git
