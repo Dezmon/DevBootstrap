@@ -406,6 +406,8 @@ docker volume rm EmacsdotFiles
    RUN apt-get install -y firefox
     
    USER emacs
+   RUN git clone --depth 1 --branch release https://github.com/adobe-fonts/source-code-pro.git ~/.fonts/adobe-fonts/source-code-pro && \
+      fc-cache -f -v ~/.fonts/adobe-fonts/source-code-pro
    COPY dotSpacemacsForLiterateDataScience /home/emacs/dotFiles/dot-spacemacs
    COPY dotSpacemacsForLiterateDataScience.env /home/emacs/dotFiles/dot-spacemacs.env
    WORKDIR /home/emacs
@@ -626,10 +628,10 @@ docker volume rm EmacsdotFiles
       dotspacemacs-colorize-cursor-according-to-state t
 
       ;; Default font or prioritized list of fonts.
-      dotspacemacs-default-font '("Source Code Pro"
-                                  :size 10.0
-                                  :weight normal
-                                  :width normal)
+     ;; dotspacemacs-default-font '("Source Code Pro"
+     ;;                             :size 10.0
+     ;;                             :weight normal
+     ;;                             :width normal)
 
       ;; The leader key (default "SPC")
       dotspacemacs-leader-key "SPC"
@@ -1004,14 +1006,15 @@ docker volume rm EmacsdotFiles
   export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
   mkdir /home/dperrin/Workdir
   sudo chmod g+w /home/dperrin/Workdir 
-  docker run --rm --name emacs \
+  docker run --rm --name emacsLDS \
          -v /tmp/.X11-unix:/tmp/.X11-unix \
-         -v dotEmacsDir:/home/emacs/.emacs.d \
-         -v EmacsdotFiles:/home/emacs/dotFiles \
+         -v LDSEmacsDir:/home/emacs/.emacs.d \
+         -v LDSEmacsdotFiles:/home/emacs/dotFiles \
          -v /home/dperrin/Workdir:/home/emacs/Workdir \
          -v /home/dperrin/.ssh:/home/emacs/.ssh \
          -e DISPLAY=$DISPLAY dperrin/spacemacs_literate_datascience
  #+end_src
+
 
 removes local volumes for testing
 #+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
@@ -1069,7 +1072,7 @@ docker volume rm dotEmacsDir
   cp Dockerfile-spacemacs_FullDev Dockerfile
   docker build -t dperrin/spacemacs_full_dev .
 #+end_src
-
+  
 #+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer :tangle ~/dockermacs :tangle-mode (identity #o700)
   export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
   mkdir /home/dperrin/Workdir 2> /dev/null
@@ -1090,6 +1093,24 @@ docker volume rm dotEmacsDir
          -e DISPLAY=$DISPLAY dperrin/spacemacs_full_dev
  #+end_src
   
+#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer :tangle ~/Workdir/dockermacs-base :tangle-mode (identity #o700)
+  export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
+  mkdir /home/dperrin/Workdir 2> /dev/null
+  chmod g+w /home/dperrin/Workdir 
+  docker run --rm --name emacs \
+         -v /tmp/.X11-unix:/tmp/.X11-unix \
+         -v /var/run/docker.sock:/var/run/docker.sock \
+         -v /home/dperrin/quicklisp/:/home/emacs/quicklisp/ \
+         -v /home/dperrin/Workdir:/home/emacs/Workdir \
+         -v /home/dperrin/Dropbox/:/home/emacs/Dropbox/ \
+         -v /home/dperrin/.gitconfig:/home/emacs/.gitconfig \
+         -v /home/dperrin/.ssh:/home/emacs/.ssh \
+         -v /home/dperrin/.aws:/home/emacs/.aws \
+         -u $(id -u dperrin):$(getent group docker | cut -d: -f3) \
+         -e TZ=America/New_York \
+         -e DISPLAY=$DISPLAY dperrin/spacemacs_full_dev
+ #+end_src
+
 * File Local Variables
 # This Must be at the end of the file 
 # Local Variables: 
