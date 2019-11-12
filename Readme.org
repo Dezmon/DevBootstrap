@@ -7,7 +7,7 @@ This code block will execute all the code blocks required to get your system set
 #+name: Execute-On-Load
 #+begin_src elisp :noweb yes :results output
   ;; Setting default docker
-    (org-babel-lob-ingest "~/Dropbox/projects/CHAI/repos/CHAI-LibraryOfBable/CHAI-Tools.org")
+    (org-babel-lob-ingest "CHAI-LibraryOfBable/CHAI-Tools.org")
     (org-sbe "CHAI-Tools_Init")
     ;; Auto tangle and results removeal (for cleaner git diffs)
     (org-sbe "Clear-Results-On-Save")
