@@ -201,6 +201,10 @@ $ aws configure
  sudo apt install ghostscript 
  sudo apt install texlive-full
    #+end_src
+   
+** Better spelling using google APIs 
+https://developers.google.com/custom-search/v1/using_rest
+https://stackoverflow.com/questions/40260655/does-google-allow-businesses-to-use-did-you-mean-feature-as-an-api-i-would-l
 * Dockerized 
 ** Build emacs
  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-emacs_base")
@@ -325,7 +329,7 @@ spacemacs-tangled.el
 
 
 *** push to dockerhub
-#+begin_src bash  :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
+#+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results none
   docker push dperrin/spacemacs_base
 #+end_src
 
@@ -358,34 +362,50 @@ docker volume rm EmacsdotFiles
  #+end_src
 
 
-** add in Tools
+** Literate Data Science
  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_LiterateDataScience")
    FROM dperrin/spacemacs_base
    USER root
-   RUN apt-get update
-   RUN echo 'APT::Get::Assume-Yes "true";' >> /etc/apt/apt.conf 
-   
-   # Latex 
-   RUN apt-get install -y ghostscript 
-   RUN apt install -y texlive-base
-   RUN DEBIAN_FRONTEND='noninteractive' apt-get install -y texlive-full
+   ENV DEBIAN_FRONTEND=noninteractive 
+   ENV TZ=America/New_York 
+   #RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+   #     tzdata \
+      
+   RUN apt-get update 
 
-   # R 
    RUN apt-get install -y software-properties-common
+
+   #R 
    RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
    RUN add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/'
    RUN apt-get update
    RUN apt-get install -y r-base
 
-
    RUN R -e "install.packages('ggplot2')"
    RUN R -e "install.packages('plot3D')"
 
-   #Conda / Python
-   USER emacs
+   # firefox
+   RUN apt-get install -y firefox
 
+   # Latex 
+   RUN apt install -y texlive-latex-recommended \
+       texlive-fonts-recommended \
+       texlive-latex-extra \
+       texlive-pictures
+
+   # DITAA text to figure makeing tool
+   RUN apt-get -y install ditaa
+
+   # should is in user space but keep geting root as owner...
+   COPY ./LiterateComputationalScience /home/emacs/LiterateComputationalScience
+   RUN chown emacs /home/emacs/LiterateComputationalScience  
+   RUN rm -rf /tmp/* \
+    && rm -rf /var/lib/apt/lists/*
+   ##### User space
+   USER emacs
    ENV HOME /home/emacs
    WORKDIR /home/emacs/
+
 
    # download conda
    RUN ["/bin/bash", "-c", "wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O $HOME/miniconda.sh"]
@@ -399,18 +419,13 @@ docker volume rm EmacsdotFiles
    RUN conda install conda-build
    RUN conda create --name emacs python=3.6 
 
-   #AWS
-   USER root
-   RUN apt-get install -y awscli
-   # firefox
-   RUN apt-get install -y firefox
-    
-   USER emacs
+   # install source code pro font
    RUN git clone --depth 1 --branch release https://github.com/adobe-fonts/source-code-pro.git ~/.fonts/adobe-fonts/source-code-pro && \
       fc-cache -f -v ~/.fonts/adobe-fonts/source-code-pro
+
+   #inital spacmacs config files
    COPY dotSpacemacsForLiterateDataScience /home/emacs/dotFiles/dot-spacemacs
    COPY dotSpacemacsForLiterateDataScience.env /home/emacs/dotFiles/dot-spacemacs.env
-   WORKDIR /home/emacs
    CMD ["bash", "-c", "emacs; /bin/bash"] 
 #+end_src
  #+begin_src elisp :tangle "dotSpacemacsForLiterateDataScience"
@@ -457,7 +472,7 @@ docker volume rm EmacsdotFiles
         ;; auto-completion
         ;; better-defaults
         emacs-lisp
-        ;;git
+        git
         helm
         ;;ivy
         lsp
@@ -476,7 +491,7 @@ docker volume rm EmacsdotFiles
         ;;docker
         latex
         ess
-     
+
         )
 
       ;; List of additional packages that will be installed without being
@@ -891,60 +906,62 @@ docker volume rm EmacsdotFiles
    before packages are loaded."
      (when (version<= "9.2" (org-version))
        (require 'org-tempo))
-
-   ;; hopefully this keeps me from case changing buffer by accident
-       (put 'downcase-region 'disabled t)
-       (put 'upcase-region 'disabled t)
-
+  
+     ;; hopefully this keeps me from case changing buffer by accident
+     (put 'downcase-region 'disabled t)
+     (put 'upcase-region 'disabled t)
+  
        ;;; remove effects of clicking to regain window, avoids accidental paste into to buffer in XWindows
-       (add-hook 'spacemacs-buffer-mode-hook
-                 (lambda ()
-                   (set (make-local-variable 'mouse-1-click-follows-link) nil)))
-
+     (add-hook 'spacemacs-buffer-mode-hook
+               (lambda ()
+                 (set (make-local-variable 'mouse-1-click-follows-link) nil)))
+  
        ;;; I like line numbers
-       (setq-default display-line-numbers-type 'visual
-                     display-line-numbers-current-absolute t
-                     display-line-numbers-width 3
-                     display-line-numbers-widen t)
-       (add-hook 'text-mode-hook #'display-line-numbers-mode)
-       (add-hook 'prog-mode-hook #'display-line-numbers-mode)
-       (add-hook 'org-mode-hook #'display-line-numbers-mode)
-       (spacemacs/toggle-highlight-current-line-globally-off)
-
-       ;; highlights changes within lines not just whole lines for magit diff
-       (customize-set-variable 'magit-diff-refine-hunk 'all)
-       (eval-after-load 'org
-         '(progn
-            (require 'ob-async)
-
-            (setq package-check-signature nil)
-
-            ;; always enable auto indent mode
-            (setq org-indent-mode t)
-
-            ;; fontify source code
-            (setq org-src-fontify-natively t)
-
-            ;; use current window when switch to source block
-            (setq org-src-window-setup 'current-window)
-
-            ;; disable prompting to evaluate babel blocks
-            (setq org-confirm-babel-evaluate nil)
-
-            ;; disable add validation link when export to html
-            (setq org-html-validation-link nil) 
-            (org-babel-do-load-languages
-             'org-babel-load-languages
-             '((emacs-lisp . t)
-               (latex . t)
-               (python . t)
-               (shell . t)
-               (org . t)
-               ;;(lisp . t)
+     (setq-default display-line-numbers-type 'visual
+                   display-line-numbers-current-absolute t
+                   display-line-numbers-width 3
+                   display-line-numbers-widen t)
+     (add-hook 'text-mode-hook #'display-line-numbers-mode)
+     (add-hook 'prog-mode-hook #'display-line-numbers-mode)
+     (add-hook 'org-mode-hook #'display-line-numbers-mode)
+     (spacemacs/toggle-highlight-current-line-globally-off)
+  
+     ;; highlights changes within lines not just whole lines for magit diff
+     (customize-set-variable 'magit-diff-refine-hunk 'all)
+     (eval-after-load 'org
+       '(progn
+          (require 'ob-async)
+       
+          (setq package-check-signature nil)
+       
+          ;; always enable auto indent mode
+          (setq org-indent-mode t)
+       
+          ;; fontify source code
+          (setq org-src-fontify-natively t)
+       
+          ;; use current window when switch to source block
+          (setq org-src-window-setup 'current-window)
+       
+          ;; disable prompting to evaluate babel blocks
+          (setq org-confirm-babel-evaluate nil)
+       
+          ;; disable add validation link when export to html
+          (setq org-html-validation-link nil) 
+          (org-babel-do-load-languages
+           'org-babel-load-languages
+           '((emacs-lisp . t)
+             (latex . t)
+             (python . t)
+             (shell . t)
+             (org . t)
+             ;;(lisp . t)
                (R . t)
                ))
-            )
-         )
+          )
+       (find-file-existing  "~/LiterateComputationalScience/Readme.org")
+       (delete-other-windows) 
+       )
      )
 
    ;; Do not write anything past this comment. This is where Emacs will
@@ -992,12 +1009,14 @@ docker volume rm EmacsdotFiles
   cp ../dotSpacemacsForLiterateDataScience .
   cp ../dotSpacemacsForLiterateDataScience.env .
   cp Dockerfile-spacemacs_LiterateDataScience Dockerfile
+  git clone --branch master git@github.com:Dezmon/LiterateComputationalScience.git
   docker build -t dperrin/spacemacs_literate_datascience .
+  rm -rf LiterateComputationalScience
 #+end_src
 
 
 *** push to dockerhub
-#+begin_src bash  :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
+#+begin_src bash  :session uploading :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
   docker push dperrin/spacemacs_literate_datascience
 #+end_src
 
@@ -1018,8 +1037,8 @@ docker volume rm EmacsdotFiles
 
 removes local volumes for testing
 #+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
-docker volume rm EmacsdotFiles
-docker volume rm dotEmacsDir
+docker volume rm LDSEmacsdotFiles
+docker volume rm LDSEmacsDir
  #+end_src
 
 ** Full dev env add slime stuff
@@ -1056,6 +1075,8 @@ docker volume rm dotEmacsDir
    RUN groupmod -g 1001 docker
    RUN usermod -aG docker emacs 
 
+   #AWS
+   RUN apt-get install -y awscli
    RUN apt-get -y install jq
    USER emacs
    WORKDIR /home/emacs
@@ -1072,8 +1093,13 @@ docker volume rm dotEmacsDir
   cp Dockerfile-spacemacs_FullDev Dockerfile
   docker build -t dperrin/spacemacs_full_dev .
 #+end_src
+
+#+begin_src bash  :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
+  docker push dperrin/spacemacs_full_dev
+#+end_src
+
   
-#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer :tangle ~/dockermacs :tangle-mode (identity #o700)
+#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer :tangle ~/Workdir/dockermacs :tangle-mode (identity #o700)
   export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
   mkdir /home/dperrin/Workdir 2> /dev/null
   chmod g+w /home/dperrin/Workdir 
@@ -1087,6 +1113,7 @@ docker volume rm dotEmacsDir
          -v /home/dperrin/Dropbox/:/home/emacs/Dropbox/ \
          -v /home/dperrin/.gitconfig:/home/emacs/.gitconfig \
          -v /home/dperrin/.ssh:/home/emacs/.ssh \
+         -v /home/dperrin/.docker:/home/emacs/.docker \
          -v /home/dperrin/.aws:/home/emacs/.aws \
          -u $(id -u dperrin):$(getent group docker | cut -d: -f3) \
          -e TZ=America/New_York \

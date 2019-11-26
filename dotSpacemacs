@@ -42,8 +42,8 @@ This function should only modify configuration layer settings."
      ;; better-defaults
      emacs-lisp
      ;;git
-     ;;helm
-     ivy
+     helm
+     ;;ivy
      lsp
      (python :variables python-backend 'lsp)
      html

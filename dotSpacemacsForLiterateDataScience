@@ -41,7 +41,7 @@ This function should only modify configuration layer settings."
      ;; auto-completion
      ;; better-defaults
      emacs-lisp
-     ;;git
+     git
      helm
      ;;ivy
      lsp
@@ -476,59 +476,61 @@ before packages are loaded."
   (when (version<= "9.2" (org-version))
     (require 'org-tempo))
 
-;; hopefully this keeps me from case changing buffer by accident
-    (put 'downcase-region 'disabled t)
-    (put 'upcase-region 'disabled t)
+  ;; hopefully this keeps me from case changing buffer by accident
+  (put 'downcase-region 'disabled t)
+  (put 'upcase-region 'disabled t)
 
     ;;; remove effects of clicking to regain window, avoids accidental paste into to buffer in XWindows
-    (add-hook 'spacemacs-buffer-mode-hook
-              (lambda ()
-                (set (make-local-variable 'mouse-1-click-follows-link) nil)))
+  (add-hook 'spacemacs-buffer-mode-hook
+            (lambda ()
+              (set (make-local-variable 'mouse-1-click-follows-link) nil)))
 
     ;;; I like line numbers
-    (setq-default display-line-numbers-type 'visual
-                  display-line-numbers-current-absolute t
-                  display-line-numbers-width 3
-                  display-line-numbers-widen t)
-    (add-hook 'text-mode-hook #'display-line-numbers-mode)
-    (add-hook 'prog-mode-hook #'display-line-numbers-mode)
-    (add-hook 'org-mode-hook #'display-line-numbers-mode)
-    (spacemacs/toggle-highlight-current-line-globally-off)
+  (setq-default display-line-numbers-type 'visual
+                display-line-numbers-current-absolute t
+                display-line-numbers-width 3
+                display-line-numbers-widen t)
+  (add-hook 'text-mode-hook #'display-line-numbers-mode)
+  (add-hook 'prog-mode-hook #'display-line-numbers-mode)
+  (add-hook 'org-mode-hook #'display-line-numbers-mode)
+  (spacemacs/toggle-highlight-current-line-globally-off)
 
-    ;; highlights changes within lines not just whole lines for magit diff
-    (customize-set-variable 'magit-diff-refine-hunk 'all)
-    (eval-after-load 'org
-      '(progn
-         (require 'ob-async)
+  ;; highlights changes within lines not just whole lines for magit diff
+  (customize-set-variable 'magit-diff-refine-hunk 'all)
+  (eval-after-load 'org
+    '(progn
+       (require 'ob-async)
 
-         (setq package-check-signature nil)
+       (setq package-check-signature nil)
 
-         ;; always enable auto indent mode
-         (setq org-indent-mode t)
+       ;; always enable auto indent mode
+       (setq org-indent-mode t)
 
-         ;; fontify source code
-         (setq org-src-fontify-natively t)
+       ;; fontify source code
+       (setq org-src-fontify-natively t)
 
-         ;; use current window when switch to source block
-         (setq org-src-window-setup 'current-window)
+       ;; use current window when switch to source block
+       (setq org-src-window-setup 'current-window)
 
-         ;; disable prompting to evaluate babel blocks
-         (setq org-confirm-babel-evaluate nil)
+       ;; disable prompting to evaluate babel blocks
+       (setq org-confirm-babel-evaluate nil)
 
-         ;; disable add validation link when export to html
-         (setq org-html-validation-link nil) 
-         (org-babel-do-load-languages
-          'org-babel-load-languages
-          '((emacs-lisp . t)
-            (latex . t)
-            (python . t)
-            (shell . t)
-            (org . t)
-            ;;(lisp . t)
+       ;; disable add validation link when export to html
+       (setq org-html-validation-link nil) 
+       (org-babel-do-load-languages
+        'org-babel-load-languages
+        '((emacs-lisp . t)
+          (latex . t)
+          (python . t)
+          (shell . t)
+          (org . t)
+          ;;(lisp . t)
             (R . t)
             ))
-         )
-      )
+       )
+    (find-file-existing  "~/LiterateComputationalScience/Readme.org")
+    (delete-other-windows) 
+    )
   )
 
 ;; Do not write anything past this comment. This is where Emacs will
