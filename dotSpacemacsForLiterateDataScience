@@ -57,7 +57,7 @@ This function should only modify configuration layer settings."
      syntax-checking
      treemacs
      version-control
-     ;;docker
+     docker
      latex
      ess
 
@@ -527,10 +527,20 @@ before packages are loaded."
           ;;(lisp . t)
             (R . t)
             ))
-       )
+    ))
     (find-file-existing  "~/LiterateComputationalScience/Readme.org")
     (delete-other-windows) 
-    )
+
+
+  ;;; These allow execution of some file local variable with out prompting these
+  ;;; are use heavily in the CHAI templating approach for org-mode based
+  ;;; development, BUT this practice is unsafe as the cleared blocks could
+  ;;; contain malicious elisp code. This has been done here to avoid beginner
+  ;;; confusion when they work though some CHAI examples; you have been warned.
+  (setf (get 'org-babel-lob-ingest 'safe-local-eval-function) t)
+  (add-to-list 'safe-local-eval-forms '(org-sbe "PreInit-Template"))
+  (add-to-list 'safe-local-eval-forms '(org-sbe "Init-Template"))
+  (add-to-list 'safe-local-eval-forms '(org-sbe "Execute-On-Load"))
   )
 
 ;; Do not write anything past this comment. This is where Emacs will

@@ -488,7 +488,7 @@ docker volume rm EmacsdotFiles
         syntax-checking
         treemacs
         version-control
-        ;;docker
+        docker
         latex
         ess
 
@@ -906,16 +906,16 @@ docker volume rm EmacsdotFiles
    before packages are loaded."
      (when (version<= "9.2" (org-version))
        (require 'org-tempo))
-  
+
      ;; hopefully this keeps me from case changing buffer by accident
      (put 'downcase-region 'disabled t)
      (put 'upcase-region 'disabled t)
-  
+
        ;;; remove effects of clicking to regain window, avoids accidental paste into to buffer in XWindows
      (add-hook 'spacemacs-buffer-mode-hook
                (lambda ()
                  (set (make-local-variable 'mouse-1-click-follows-link) nil)))
-  
+
        ;;; I like line numbers
      (setq-default display-line-numbers-type 'visual
                    display-line-numbers-current-absolute t
@@ -925,27 +925,27 @@ docker volume rm EmacsdotFiles
      (add-hook 'prog-mode-hook #'display-line-numbers-mode)
      (add-hook 'org-mode-hook #'display-line-numbers-mode)
      (spacemacs/toggle-highlight-current-line-globally-off)
-  
+
      ;; highlights changes within lines not just whole lines for magit diff
      (customize-set-variable 'magit-diff-refine-hunk 'all)
      (eval-after-load 'org
        '(progn
           (require 'ob-async)
-       
+
           (setq package-check-signature nil)
-       
+
           ;; always enable auto indent mode
           (setq org-indent-mode t)
-       
+
           ;; fontify source code
           (setq org-src-fontify-natively t)
-       
+
           ;; use current window when switch to source block
           (setq org-src-window-setup 'current-window)
-       
+
           ;; disable prompting to evaluate babel blocks
           (setq org-confirm-babel-evaluate nil)
-       
+
           ;; disable add validation link when export to html
           (setq org-html-validation-link nil) 
           (org-babel-do-load-languages
@@ -958,15 +958,26 @@ docker volume rm EmacsdotFiles
              ;;(lisp . t)
                (R . t)
                ))
-          )
+       ))
        (find-file-existing  "~/LiterateComputationalScience/Readme.org")
        (delete-other-windows) 
-       )
+
+
+     ;;; These allow execution of some file local variable with out prompting these
+     ;;; are use heavily in the CHAI templating approach for org-mode based
+     ;;; development, BUT this practice is unsafe as the cleared blocks could
+     ;;; contain malicious elisp code. This has been done here to avoid beginner
+     ;;; confusion when they work though some CHAI examples; you have been warned.
+     (setf (get 'org-babel-lob-ingest 'safe-local-eval-function) t)
+     (add-to-list 'safe-local-eval-forms '(org-sbe "PreInit-Template"))
+     (add-to-list 'safe-local-eval-forms '(org-sbe "Init-Template"))
+     (add-to-list 'safe-local-eval-forms '(org-sbe "Execute-On-Load"))
      )
 
    ;; Do not write anything past this comment. This is where Emacs will
    ;; auto-generate custom variable definitions.
 #+end_src
+
  #+begin_src text :tangle "dotSpacemacsForLiterateDataScience.env"
    # ---------------------------------------------------------------------------
    #                    Spacemacs environment variables
@@ -1019,6 +1030,7 @@ docker volume rm EmacsdotFiles
 #+begin_src bash  :session uploading :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
   docker push dperrin/spacemacs_literate_datascience
 #+end_src
+
 
 *** Run emacs
 #+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
@@ -1094,11 +1106,12 @@ docker volume rm LDSEmacsDir
   docker build -t dperrin/spacemacs_full_dev .
 #+end_src
 
+
 #+begin_src bash  :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
   docker push dperrin/spacemacs_full_dev
 #+end_src
 
-  
+   
 #+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer :tangle ~/Workdir/dockermacs :tangle-mode (identity #o700)
   export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
   mkdir /home/dperrin/Workdir 2> /dev/null
@@ -1144,4 +1157,4 @@ docker volume rm LDSEmacsDir
 # eval: (org-sbe "Execute-On-Load")
 # End:
 
-#  LocalWords:  JS html CSS AWS ECS APIs Keras rabbitmq
+#  LocalWords:  JS html CSS AWS ECS APIs Keras rabbitmq CHAI
