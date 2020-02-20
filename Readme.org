@@ -1006,9 +1006,7 @@ docker volume rm EmacsdotFiles
    # Environment variables:
    # ----------------------
    DEBIAN_FRONTEND=noninteractive
-   DISPLAY=172.19.96.1:0.0
    HOME=/home/emacs
-   HOSTNAME=0169c7b4e696
    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
    PWD=/home/emacs
    SHLVL=1
@@ -1030,7 +1028,6 @@ docker volume rm EmacsdotFiles
 #+begin_src bash  :session uploading :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
   docker push dperrin/spacemacs_literate_datascience
 #+end_src
-
 
 *** Run emacs
 #+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
@@ -1087,6 +1084,12 @@ docker volume rm LDSEmacsDir
    RUN groupmod -g 1001 docker
    RUN usermod -aG docker emacs 
 
+   RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+   #RUN echo "deb https://apt.kubernetes.io/ $(lsb_release -cs) main" | tee -a /etc/apt/sources.list.d/kubernetes.list
+   RUN echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | tee -a /etc/apt/sources.list.d/kubernetes.list
+   RUN apt-get update
+   RUN apt-get install -y kubectl
+
    #AWS
    RUN apt-get install -y awscli
    RUN apt-get -y install jq
@@ -1106,10 +1109,10 @@ docker volume rm LDSEmacsDir
   docker build -t dperrin/spacemacs_full_dev .
 #+end_src
 
-
-#+begin_src bash  :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
+#+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
   docker push dperrin/spacemacs_full_dev
 #+end_src
+
 
    
 #+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer :tangle ~/Workdir/dockermacs :tangle-mode (identity #o700)
@@ -1150,6 +1153,36 @@ docker volume rm LDSEmacsDir
          -e TZ=America/New_York \
          -e DISPLAY=$DISPLAY dperrin/spacemacs_full_dev
  #+end_src
+
+** Without XWindows
+ #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_FullDev_Xless")
+   FROM dperrin/spacemacs_full_dev
+   USER root
+
+   RUN wget -q https://xpra.org/gpg.asc -O- | sudo apt-key add -
+   # add XPRA repository
+   RUN  add-apt-repository "deb https://xpra.org/ bionic main"
+   RUN apt-get update
+   # install XPRA package
+   RUN apt-get install xpra
+
+   RUN usermod -a -G xpra emacs
+
+   USER emacs
+   WORKDIR /home/emacs
+   #CMD ["bash", "-c", "emacs; /bin/bash"] 
+   ENTRYPOINT xpra start --bind-tcp=0.0.0.0:9876 --exit-with-children --html=on --start-child=emacs --daemon=no
+#+end_src
+*** build images
+#+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results raw drawer 
+  cp Dockerfile-spacemacs_FullDev_Xless Dockerfile
+  docker build -t dperrin/spacemacs_full_dev_xless .
+#+end_src
+
+*** test
+   #+begin_src bash :async
+   xterm &
+   #+end_src
 
 * File Local Variables
 # This Must be at the end of the file 
