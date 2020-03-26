@@ -528,7 +528,14 @@ before packages are loaded."
             (R . t)
             ))
     ))
-    (find-file-existing  "~/LiterateComputationalScience/Readme.org")
+
+    ;;; in this version of emacs (28) the compiled org files cause problems so just use the el files.   
+    (save-excursion
+       (mapc 'delete-file 
+             (directory-files 
+              (car (directory-files "~/.emacs.d/elpa/28.0/develop" 't "org-plus-contrib-*")) 't ".elc" )))
+
+    (find-file-existing  "~/LiterateComputationalScience/tutorial.org")
     (delete-other-windows) 
 
 

@@ -319,6 +319,11 @@ spacemacs-tangled.el
   echo Built emacs_base
 #+end_src
 
+ #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker tag dperrin/emacs_base dperrin/emacs_base:stable
+   docker push dperrin/emacs_base:stable
+   exit
+ #+end_src
 
 #+begin_src bash :session *dockerBuild*  :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
   cp ../dotSpacemacs.env .
@@ -327,6 +332,11 @@ spacemacs-tangled.el
   docker build -t dperrin/spacemacs_base .
 #+end_src
 
+ #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker tag dperrin/spacemacs_base dperrin/spacemacs_base:stable
+   docker push dperrin/spacemacs_base:stable
+   exit
+ #+end_src
 
 *** push to dockerhub
 #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results none
@@ -959,7 +969,14 @@ docker volume rm EmacsdotFiles
                (R . t)
                ))
        ))
-       (find-file-existing  "~/LiterateComputationalScience/Readme.org")
+
+       ;;; in this version of emacs (28) the compiled org files cause problems so just use the el files.   
+       (save-excursion
+          (mapc 'delete-file 
+                (directory-files 
+                 (car (directory-files "~/.emacs.d/elpa/28.0/develop" 't "org-plus-contrib-*")) 't ".elc" )))
+
+       (find-file-existing  "~/LiterateComputationalScience/tutorial.org")
        (delete-other-windows) 
 
 
@@ -1015,20 +1032,28 @@ docker volume rm EmacsdotFiles
 #+end_src
 *** build images
 #+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results raw drawer 
+  pwd
   cp ../dotSpacemacsForLiterateDataScience .
   cp ../dotSpacemacsForLiterateDataScience.env .
   cp Dockerfile-spacemacs_LiterateDataScience Dockerfile
   git clone --branch master git@github.com:Dezmon/LiterateComputationalScience.git
   docker build -t dperrin/spacemacs_literate_datascience .
   rm -rf LiterateComputationalScience
+  exit
 #+end_src
 
 
 *** push to dockerhub
 #+begin_src bash  :session uploading :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
   docker push dperrin/spacemacs_literate_datascience
+  exit
 #+end_src
 
+ #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker tag dperrin/spacemacs_literate_datascience dperrin/spacemacs_literate_datascience:stable
+   docker push dperrin/spacemacs_literate_datascience:stable
+   exit
+ #+end_src
 *** Run emacs
 #+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
   export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
@@ -1050,52 +1075,101 @@ docker volume rm LDSEmacsdotFiles
 docker volume rm LDSEmacsDir
  #+end_src
 
+*** Without XWindows 
+  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_LiterateDataScience_Xless")
+    FROM dperrin/spacemacs_literate_datascience
+    USER root
+
+    RUN wget -q https://xpra.org/gpg.asc -O- | sudo apt-key add -
+    # add XPRA repository
+    RUN  add-apt-repository "deb https://xpra.org/ bionic main"
+    RUN apt-get update
+    # install XPRA package
+    RUN apt-get install xpra
+
+    RUN usermod -a -G xpra emacs
+
+    USER emacs
+    WORKDIR /home/emacs
+    #CMD ["bash", "-c", "emacs; /bin/bash"] 
+    ENTRYPOINT xpra start --bind-tcp=0.0.0.0:9876 --exit-with-children --html=on --start-child=emacs --start-child=xterm --daemon=no
+ #+end_src
+**** build images
+ #+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results raw drawer 
+   cp Dockerfile-spacemacs_LiterateDataScience_Xless Dockerfile
+   docker build -t dperrin/spacemacs_literate_datascience_xless .
+ #+end_src
+ #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
+   docker push dperrin/spacemacs_literate_datascience_xless
+ #+end_src
+
+ #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker tag dperrin/spacemacs_literate_datascience_xless dperrin/spacemacs_literate_datascience_xless:stable
+   docker push dperrin/spacemacs_literate_datascience_xless:stable
+   exit
+ #+end_src
+**** test
+#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
+  docker run --rm --name emacsLDS \
+         -p 9875:9876 \
+         -v LDSEmacsDir:/home/emacs/.emacs.d \
+         -v LDSEmacsdotFiles:/home/emacs/dotFiles \
+          dperrin/spacemacs_literate_datascience_xless
+ #+end_src
+
 ** Full dev env add slime stuff
  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_FullDev")
-   FROM dperrin/spacemacs_literate_datascience
-   USER root
-   RUN apt-get update
+      FROM dperrin/spacemacs_literate_datascience
+      USER root
+      RUN apt-get update
 
 
-   RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install sbcl sbcl-doc sbcl-source
-   RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install slime 
+      RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install sbcl sbcl-doc sbcl-source
+      RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install slime 
 
-   USER emacs
-   WORKDIR /home/emacs
+      USER emacs
+      WORKDIR /home/emacs
 
-   COPY FirstRunLisp.lisp FirstRunLisp.lisp  
-   RUN mkdir quicklisp/
-   RUN mv FirstRunLisp.lisp quicklisp/
-   WORKDIR /home/emacs/quicklisp/
-   RUN wget https://beta.quicklisp.org/quicklisp.lisp
-   RUN git clone https://github.com/slime/slime.git
-   RUN sbcl --load /home/emacs/quicklisp/quicklisp.lisp --sccript FirstRunLisp.lisp
+      COPY FirstRunLisp.lisp FirstRunLisp.lisp  
+      RUN mkdir quicklisp/
+      RUN mv FirstRunLisp.lisp quicklisp/
+      WORKDIR /home/emacs/quicklisp/
+      RUN wget https://beta.quicklisp.org/quicklisp.lisp
+      RUN git clone https://github.com/slime/slime.git
+      RUN sbcl --load /home/emacs/quicklisp/quicklisp.lisp --sccript FirstRunLisp.lisp
 
-   USER root
-   RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-   RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-   RUN add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-   RUN apt-get update
-   RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install docker-ce
+      USER root
+      RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+      RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+      RUN add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+      RUN apt-get update
+      RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install docker-ce
 
-   RUN curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-   RUN chmod +x /usr/local/bin/docker-compose  
-   #RUN ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
-   RUN groupmod -g 1001 docker
-   RUN usermod -aG docker emacs 
+      RUN curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+      RUN chmod +x /usr/local/bin/docker-compose  
+      #RUN ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+      RUN groupmod -g 1001 docker
+      RUN usermod -aG docker emacs 
 
-   RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-   #RUN echo "deb https://apt.kubernetes.io/ $(lsb_release -cs) main" | tee -a /etc/apt/sources.list.d/kubernetes.list
-   RUN echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | tee -a /etc/apt/sources.list.d/kubernetes.list
-   RUN apt-get update
-   RUN apt-get install -y kubectl
+      RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+      #RUN echo "deb https://apt.kubernetes.io/ $(lsb_release -cs) main" | tee -a /etc/apt/sources.list.d/kubernetes.list
+      RUN echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | tee -a /etc/apt/sources.list.d/kubernetes.list
+      RUN apt-get update
+      RUN apt-get install -y kubectl
 
-   #AWS
-   RUN apt-get install -y awscli
-   RUN apt-get -y install jq
-   USER emacs
-   WORKDIR /home/emacs
-   CMD ["bash", "-c", "emacs; /bin/bash"] 
+      #AWS
+      RUN apt-get install -y awscli
+      RUN apt-get -y install jq
+      COPY FixSSHPermitions.sh /bin/FixSSHPermitions.sh
+      RUN chmod +x /bin/FixSSHPermitions.sh
+    
+      #LSP for python
+      RUN pip install 'python-language-server[all]'
+      USER emacs
+      WORKDIR /home/emacs
+      #CMD ["bash", "-c", "emacs; /bin/bash"] 
+      ENTRYPOINT /bin/FixSSHPermitions.sh; emacs; /bin/bash
+
 #+end_src
  #+begin_src lisp :tangle (concat *TrampPrefix* *DockerFiles* "FirstRunLisp.lisp")
    #!/usr/local/bin/sbcl --load path/of/quicklisp.lisp --script
@@ -1103,15 +1177,34 @@ docker volume rm LDSEmacsDir
    (ql:quickload "quicklisp-slime-helper")
    (quit)
     #+end_src
+ #+begin_src sh :tangle (concat *TrampPrefix* *DockerFiles* "FixSSHPermitions.sh")
+   #!/bin/sh
+   set -e
+
+   cp -R /tmp/.ssh ~/.ssh
+   chmod 700 ~/.ssh
+   chmod -R og-rwx ~/.ssh/*
+   chmod og+r ~/.ssh/*.pub
+
+   exec "$@" 
+#+end_src
 *** build images
 #+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results raw drawer 
   cp Dockerfile-spacemacs_FullDev Dockerfile
   docker build -t dperrin/spacemacs_full_dev .
+  exit
 #+end_src
 
 #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
   docker push dperrin/spacemacs_full_dev
+  exit
 #+end_src
+
+ #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker tag dperrin/spacemacs_full_dev dperrin/spacemacs_full_dev:stable
+   docker push dperrin/spacemacs_full_dev:stable
+   exit
+ #+end_src
 
 
    
@@ -1153,37 +1246,85 @@ docker volume rm LDSEmacsDir
          -e TZ=America/New_York \
          -e DISPLAY=$DISPLAY dperrin/spacemacs_full_dev
  #+end_src
+ 
+** Without XWindows 
+  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_FullDev_Xless")
+    FROM dperrin/spacemacs_full_dev
+    USER root
 
-** Without XWindows
- #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_FullDev_Xless")
-   FROM dperrin/spacemacs_full_dev
-   USER root
+    RUN wget -q https://xpra.org/gpg.asc -O- | sudo apt-key add -
+    # add XPRA repository
+    RUN  add-apt-repository "deb https://xpra.org/ bionic main"
+    RUN apt-get update
+    # install XPRA package
+    RUN apt-get install xpra
 
-   RUN wget -q https://xpra.org/gpg.asc -O- | sudo apt-key add -
-   # add XPRA repository
-   RUN  add-apt-repository "deb https://xpra.org/ bionic main"
-   RUN apt-get update
-   # install XPRA package
-   RUN apt-get install xpra
+    RUN usermod -a -G xpra emacs
 
-   RUN usermod -a -G xpra emacs
+    USER emacs
+    WORKDIR /home/emacs
+    #CMD ["bash", "-c", "emacs; /bin/bash"] 
+    ENTRYPOINT /bin/FixSSHPermitions.sh; xpra start --bind-tcp=0.0.0.0:9876 --exit-with-children --html=on --start-child=emacs --start-child=xterm --daemon=no
+ #+end_src
+**** build images   
+ #+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
+   cp Dockerfile-spacemacs_FullDev_Xless Dockerfile
+   docker build -t dperrin/spacemacs_full_dev_xless .
+   exit
+ #+end_src
 
-   USER emacs
-   WORKDIR /home/emacs
-   #CMD ["bash", "-c", "emacs; /bin/bash"] 
-   ENTRYPOINT xpra start --bind-tcp=0.0.0.0:9876 --exit-with-children --html=on --start-child=emacs --daemon=no
-#+end_src
-*** build images
-#+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results raw drawer 
-  cp Dockerfile-spacemacs_FullDev_Xless Dockerfile
-  docker build -t dperrin/spacemacs_full_dev_xless .
-#+end_src
 
-*** test
-   #+begin_src bash :async
-   xterm &
-   #+end_src
+ #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker push dperrin/spacemacs_full_dev_xless
+   exit
+ #+end_src
+ 
+ #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker tag dperrin/spacemacs_full_dev_xless dperrin/spacemacs_full_dev_xless:stable
+   docker push dperrin/spacemacs_full_dev_xless:stable
+   exit
+ #+end_src
+**** test
+    #+begin_src bash :async
+    xterm &
+    #+end_src
+    
+#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
+  docker run --rm --name emacsLDS \
+         -p 9875:9876 \
+         -v //var/run/docker.sock:/var/run/docker.sock \
+         -v LDSEmacsDir:/home/emacs/.emacs.d \
+         -v LDSEmacsdotFiles:/home/emacs/dotFiles \
+          dperrin/spacemacs_full_dev_xless
+ #+end_src
 
+#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
+  docker run --rm --name emacsLDS \
+         -p 9875:9876 \
+         -v //var/run/docker.sock:/var/run/docker.sock \
+          dperrin/spacemacs_full_dev_xless
+ #+end_src
+
+**** running 
+     Microsoft windows .bat file  
+   #+begin_src text
+     docker run --rm --name emacs ^
+      -p 9876:9876 ^
+      -v //var/run/docker.sock:/var/run/docker.sock ^
+      -v dotEmacsDir:/home/emacs/.emacs.d ^
+      -v dotFiles:/home/emacs/dotFiles ^
+      -v C:\Users\dperrin\Dropbox\:/home/emacs/Dropbox ^
+      -v C:\Users\dperrin\Dropbox\quicklisp:/home/emacs/quicklisp/ ^
+      -v C:\Users\dperrin\Dropbox\dotFiles\dotspacemacs-tangled.el:/home/emacs/dotFiles/dot-spacemacs ^
+      -v C:\Users\dperrin\Dropbox\dotFiles\keys\:/tmp/.ssh:ro ^
+      -v C:\Users\dperrin\Dropbox\dotFiles\dotDocker:/home/emacs/.docker ^
+      -v C:\Users\dperrin\Dropbox\dotFiles\gitconfig:/home/emacs/.gitconfig ^
+      -v C:\Users\dperrin\Dropbox\dotFiles\dotAWS:/home/emacs/.aws ^
+      -e TZ=America/New_York ^
+      dperrin/spacemacs_full_dev_xless
+
+     pause
+     #+end_src
 * File Local Variables
 # This Must be at the end of the file 
 # Local Variables: 
