@@ -7,14 +7,16 @@ This code block will execute all the code blocks required to get your system set
 #+name: Execute-On-Load
 #+begin_src elisp :noweb yes :results output
   ;; Setting default docker
-    (org-babel-lob-ingest "CHAI-LibraryOfBable/CHAI-Tools.org")
-    (org-sbe "CHAI-Tools_Init")
-    ;; Auto tangle and results removeal (for cleaner git diffs)
-    (org-sbe "Clear-Results-On-Save")
-    (org-sbe "Tangle-On-Save")
-    (setq-local *docker_id* "emacs_docker")
-    (setq-local *DockerFiles* "container/")
-    (setq-local *TrampPrefix* "./")
+  (org-babel-lob-ingest "CHAI-LibraryOfBable/CHAI-Tools.org")
+  (org-sbe "CHAI-Tools_Init")
+  ;; Auto tangle and results removeal (for cleaner git diffs)
+  (org-sbe "Clear-Results-On-Save")
+  (org-sbe "Tangle-On-Save")
+  (org-sbe "handle-term-exit")
+  (org-sbe "add-term-to-bash")
+  (setq-local *docker_id* "emacs_docker")
+  (setq-local *DockerFiles* "container/")
+  (setq-local *TrampPrefix* "./")
 #+end_src
 
 #+RESULTS:
@@ -205,21 +207,23 @@ $ aws configure
 ** Better spelling using google APIs 
 https://developers.google.com/custom-search/v1/using_rest
 https://stackoverflow.com/questions/40260655/does-google-allow-businesses-to-use-did-you-mean-feature-as-an-api-i-would-l
-* alt from S. Chua
+* bash output to term instead of shell buffer from S. Chua
+#+name:add-term-to-bash
 #+begin_src emacs-lisp
-(defadvice org-babel-execute:bash (around sacha activate)
-  (if (assoc-default :term (ad-get-arg 1) nil)
-    (let ((buffer (make-term (assoc-default :term (ad-get-arg 1) nil ) "/bin/bash")))
-      (with-current-buffer buffer
-        (insert (org-babel-expand-body:generic
-             body params (org-babel-variable-assignments:sh params)))
-        (term-send-input))
-(pop-to-buffer buffer))
-    ad-do-it))
+  (defadvice org-babel-execute:bash (around sacha activate)
+    (if (assoc-default :term (ad-get-arg 1) nil)
+      (let ((buffer (make-term (assoc-default :term (ad-get-arg 1) nil ) "/bin/bash")))
+        (with-current-buffer buffer
+          (insert (org-babel-expand-body:generic
+               body params (org-babel-variable-assignments:sh params)))
+          (term-send-input))
+  (pop-to-buffer buffer))
+      ad-do-it))
 #+end_src
 
 * kill buffer when term exits
   from comments in : [[https://oremacs.com/2015/01/01/three-ansi-term-tips/]]
+#+name:handle-term-exit
 #+begin_src emacs-lisp
   (defadvice term-handle-exit
       (after term-kill-buffer-on-exit activate)
@@ -230,6 +234,9 @@ https://stackoverflow.com/questions/40260655/does-google-allow-businesses-to-use
 #+end_src
 
 * Dockerize
+:PROPERTIES:
+  :header-args:bash:          :var versionNumber='2.0'
+  :END:
 ** layering
    - add versions to dockerhub push
    - emacs
@@ -301,8 +308,28 @@ https://stackoverflow.com/questions/40260655/does-google-allow-businesses-to-use
 
    CMD ["bash", "-c", "emacs; /bin/bash"] 
 #+end_src
+#+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* ".dockerignore")
+Dockerfile 
+Dockerfile-spacemacs_base
+Dockerfile-emacs_basedot
+spacemacs-tangled.el
+.dockerignore
+#+end_src
+*** build images
+
+#+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent
+  cp Dockerfile-emacs_base Dockerfile
+  docker build -t dperrin/emacs_base:dev .
+  echo Built dperrin/emacs_base:dev
+#+end_src
+
+ #+begin_src bash  :dockerpush dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker tag dperrin/emacs_base:dev dperrin/emacs_base:$versionNumber
+   docker push dperrin/emacs_base:$versionNumber
+ #+end_src
+** spacemacs
  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_base")
-   FROM dperrin/emacs_base
+   FROM dperrin/emacs_base:dev
 
    USER emacs:emacs
    WORKDIR /home/emacs
@@ -324,72 +351,22 @@ https://stackoverflow.com/questions/40260655/does-google-allow-businesses-to-use
 
    CMD ["bash", "-c", "emacs; /bin/bash"] 
 #+end_src
-#+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* ".dockerignore")
-Dockerfile 
-Dockerfile-spacemacs_base
-Dockerfile-emacs_basedot
-spacemacs-tangled.el
-.dockerignore
-#+end_src
 *** build images
-
-#+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent
-  cp Dockerfile-emacs_base Dockerfile
-  docker build -t dperrin/emacs_base-$versionNumber .
-  echo Built dperrin/emacs_base-$versionNumber
-#+end_src
-
- #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
-   docker tag dperrin/emacs_base dperrin/emacs_base:dev
-   docker push dperrin/emacs_base:dev
-   exit
- #+end_src
-
-#+begin_src bash :session *dockerBuild*  :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+#+begin_src bash :term *dockerBuild*  :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
   cp ../dotSpacemacs.env .
   cp ../dotSpacemacs .
   cp Dockerfile-spacemacs_base Dockerfile
   docker build -t dperrin/spacemacs_base .
 #+end_src
 
- #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
-   docker tag dperrin/spacemacs_base dperrin/spacemacs_base:dev
-   docker push dperrin/spacemacs_base:dev
-   exit
+ #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker tag dperrin/spacemacs_base dperrin/spacemacs_base:$versionNumber
+   docker push dperrin/spacemacs_base:$versionNumber
  #+end_src
 
-
-*** Run emacs
-#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
-  export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
-  mkdir /home/dperrin/Workdir
-  sudo chmod g+w /home/dperrin/Workdir 
-  docker run --rm --name emacs \
-         -v /tmp/.X11-unix:/tmp/.X11-unix \
-         -v dotEmacsDir:/home/emacs/.emacs.d \
-         -v EmacsdotFiles:/home/emacs/dotFiles \
-         -v /home/dperrin/Workdir:/home/emacs/Workdir \
-         -e DISPLAY=$DISPLAY dperrin/spacemacs_base
- #+end_src
-
-removes local volumes for testing
-#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
-docker volume rm EmacsdotFiles
-#docker volume rm dotEmacsDir
- #+end_src
-
-
-*** TODO .emacs.d should probably have the org .ele files deleted there seen to be a melpa version problem with them
-
-#+begin_src bash :results raw drawer
- #docker login
- docker tag $(docker images | grep spacemacs_inited | awk '{print $3}') dperrin/emacs:firsttry
- docker push dperrin/emacs 
- #+end_src
 
 
 ** basic latex
-   
  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-latex")
    FROM ubuntu:20.04
 
@@ -1138,27 +1115,6 @@ docker volume rm EmacsdotFiles
    docker push dperrin/spacemacs_literate_datascience:stable
    exit
  #+end_src
-*** Run emacs
-#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
-  export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
-  mkdir /home/dperrin/Workdir
-  sudo chmod g+w /home/dperrin/Workdir 
-  docker run --rm --name emacsLDS \
-         -v /tmp/.X11-unix:/tmp/.X11-unix \
-         -v LDSEmacsDir:/home/emacs/.emacs.d \
-         -v LDSEmacsdotFiles:/home/emacs/dotFiles \
-         -v /home/dperrin/Workdir:/home/emacs/Workdir \
-         -v /home/dperrin/.ssh:/home/emacs/.ssh \
-         -e DISPLAY=$DISPLAY dperrin/spacemacs_literate_datascience
- #+end_src
-
-
-removes local volumes for testing
-#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
-docker volume rm LDSEmacsdotFiles
-docker volume rm LDSEmacsDir
- #+end_src
-
 *** Without XWindows 
   #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_LiterateDataScience_Xless")
     FROM dperrin/spacemacs_literate_datascience
