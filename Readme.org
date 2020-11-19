@@ -18,11 +18,11 @@ This code block will execute all the code blocks required to get your system set
 #+end_src
 
 #+RESULTS:
- 
+  
 ** Org Code
 *** Set Tramp General targets 
  
-#+name:SetTrampTargetrDocker
+#+name:SetTrampTargetDocker
  #+begin_src elisp :var Location=`,*docker_id*
   (setq-local *TrampPrefix* (concat "/docker:" Location ":/home/"))
  #+end_src
@@ -206,47 +206,55 @@ $ aws configure
 https://developers.google.com/custom-search/v1/using_rest
 https://stackoverflow.com/questions/40260655/does-google-allow-businesses-to-use-did-you-mean-feature-as-an-api-i-would-l
 * Dockerized 
-** Build emacs
- #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-emacs_base")
-   FROM ubuntu:18.04
+** basic latex
+   
+ #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-latex")
+   FROM ubuntu:20.04
 
    # basic stuff
    RUN echo 'APT::Get::Assume-Yes "true";' >> /etc/apt/apt.conf 
 
    RUN apt-get update --fix-missing
 
-   RUN apt-get install \
-       bash \
-       build-essential \
-       dbus-x11 \
-       fontconfig \
-       git \
-       curl \
-       gzip \
-       language-pack-en-base \
-       libgl1-mesa-glx \
-       make \
-       sudo \
-       tar \
-       unzip 
-   RUN apt-get install \
-       wget \
-       apt-utils \
-       automake \
-       texinfo \
-       libjpeg-dev \
-       libncurses5-dev
+   USER root
+   ENV DEBIAN_FRONTEND=noninteractive 
+   ENV TZ=America/New_York 
+   RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+   RUN apt-get install tzdata
+
+   # Latex 
+   RUN apt install -y texlive-latex-extra
+   RUN apt install -y texlive-science
+   RUN apt install -y texlive-fonts-extra
+    
+   RUN useradd -d /home/emacs -ms /bin/bash -G sudo -p emacs emacs
+
+   ##### User space
+   USER emacs:emacs
+   ENV HOME /home/emacs
+   WORKDIR /home/emacs/
+
+
+   CMD ["bash", "-c", "emacs; /bin/bash"] 
+#+end_src
+** Build emacs
+ #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-emacs_base")
+   FROM ubuntu:20.04
+
+   # basic stuff
+   RUN echo 'APT::Get::Assume-Yes "true";' >> /etc/apt/apt.conf 
+
+   RUN apt-get update --fix-missing
+
+   RUN apt-get install -y bash build-essential dbus-x11 fontconfig git curl gzip language-pack-en-base make sudo tar unzip wget apt-utils automake libjpeg-dev libncurses5-dev libgl1-mesa-glx 
+    
+   ENV TZ=America/New_York 
+   RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+   RUN apt-get install tzdata
+
+   RUN apt-get install libgif-dev libpng-dev libxpm-dev libgtk-3-dev libgnutls28-dev libmagickcore-dev libmagick++-dev texinfo libtiff5-dev 
 
    RUN  git clone -b master git://git.sv.gnu.org/emacs.git
-
-   RUN apt-get install libtiff5-dev 
-   RUN apt-get install libgif-dev 
-   RUN apt-get install libpng-dev 
-   RUN apt-get install libxpm-dev 
-   RUN apt-get install libgtk-3-dev 
-   RUN apt-get install libgnutls28-dev 
-   RUN apt-get install libmagickcore-dev 
-   RUN apt-get install libmagick++-dev
 
    RUN cd emacs/ && \
      ./autogen.sh && \
@@ -271,7 +279,7 @@ https://stackoverflow.com/questions/40260655/does-google-allow-businesses-to-use
    # ^^^^^^^ Those layers are shared ^^^^^^^
 
    # Emacs
-   RUN useradd -d /home/emacs -ms /bin/bash -g root -G sudo -p emacs emacs
+   RUN useradd -d /home/emacs -ms /bin/bash -G sudo -p emacs emacs
 
    WORKDIR /home/emacs
    RUN mkdir .emacs.d  && chown emacs .emacs.d
@@ -285,7 +293,7 @@ https://stackoverflow.com/questions/40260655/does-google-allow-businesses-to-use
  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_base")
    FROM dperrin/emacs_base
 
-   USER emacs
+   USER emacs:emacs
    WORKDIR /home/emacs
 
    RUN cd ~ && \
@@ -313,19 +321,19 @@ spacemacs-tangled.el
 .dockerignore
 #+end_src
 *** build images
-#+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results raw drawer 
+#+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent
   cp Dockerfile-emacs_base Dockerfile
   docker build -t dperrin/emacs_base .
   echo Built emacs_base
 #+end_src
 
  #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
-   docker tag dperrin/emacs_base dperrin/emacs_base:stable
-   docker push dperrin/emacs_base:stable
+   docker tag dperrin/emacs_base dperrin/emacs_base:dev
+   docker push dperrin/emacs_base:dev
    exit
  #+end_src
 
-#+begin_src bash :session *dockerBuild*  :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
+#+begin_src bash :session *dockerBuild*  :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
   cp ../dotSpacemacs.env .
   cp ../dotSpacemacs .
   cp Dockerfile-spacemacs_base Dockerfile
@@ -333,15 +341,11 @@ spacemacs-tangled.el
 #+end_src
 
  #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
-   docker tag dperrin/spacemacs_base dperrin/spacemacs_base:stable
-   docker push dperrin/spacemacs_base:stable
+   docker tag dperrin/spacemacs_base dperrin/spacemacs_base:dev
+   docker push dperrin/spacemacs_base:dev
    exit
  #+end_src
 
-*** push to dockerhub
-#+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results none
-  docker push dperrin/spacemacs_base
-#+end_src
 
 *** Run emacs
 #+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer
@@ -380,27 +384,28 @@ docker volume rm EmacsdotFiles
    ENV TZ=America/New_York 
    #RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
    #     tzdata \
-      
+
    RUN apt-get update 
 
-   RUN apt-get install -y software-properties-common
+   #R
+   #RUN apt install dirmngr gnupg apt-transport-https ca-certificates software-properties-common
+   #RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
+   #RUN add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu focal-cran40/'
+   #RUN apt-get update
+   #RUN apt-get install -y r-base
 
-   #R 
-   RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
-   RUN add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/'
-   RUN apt-get update
-   RUN apt-get install -y r-base
-
-   RUN R -e "install.packages('ggplot2')"
-   RUN R -e "install.packages('plot3D')"
+   #RUN R -e "install.packages('ggplot2')"
+   #RUN R -e "install.packages('plot3D')"
 
    # firefox
    RUN apt-get install -y firefox
 
    # Latex 
-   RUN apt install -y texlive-latex-recommended \
-       texlive-fonts-recommended \
+   RUN apt install -y texlive-base\
        texlive-latex-extra \
+       texlive-fonts-recommended \
+       texlive-science \
+       texlive-fonts-extra \
        texlive-pictures
 
    # DITAA text to figure makeing tool
@@ -412,7 +417,7 @@ docker volume rm EmacsdotFiles
    RUN rm -rf /tmp/* \
     && rm -rf /var/lib/apt/lists/*
    ##### User space
-   USER emacs
+   USER emacs:emacs
    ENV HOME /home/emacs
    WORKDIR /home/emacs/
 
@@ -426,7 +431,7 @@ docker volume rm EmacsdotFiles
 
    # update conda
    RUN conda update conda
-   RUN conda install conda-build
+   #RUN conda install conda-build
    RUN conda create --name emacs python=3.6 
 
    # install source code pro font
@@ -1031,7 +1036,44 @@ docker volume rm EmacsdotFiles
 
 #+end_src
 *** build images
-#+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results raw drawer 
+#+begin_src bash :session *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
+  pwd
+  cp ../dotSpacemacsForLiterateDataScience .
+  cp ../dotSpacemacsForLiterateDataScience.env .
+  cp Dockerfile-spacemacs_LiterateDataScience Dockerfile
+  git clone --branch master git@github.com:Dezmon/LiterateComputationalScience.git
+  docker build -t dperrin/spacemacs_literate_datascience .
+  rm -rf LiterateComputationalScience
+  exit
+#+end_src
+
+
+#+begin_src emacs-lisp
+ (defadvice org-babel-execute:sh (around sacha activate)
+   (if (assoc-default :term (ad-get-arg 1) nil)
+     (let ((buffer (make-term "babel" "/bin/bash")))
+       (with-current-buffer buffer
+         (insert (org-babel-expand-body:generic
+              body params (org-babel-variable-assignments:sh params)))
+         (term-send-input))
+ (pop-to-buffer buffer))
+     ad-do-it))
+ #+end_src
+
+#+begin_src emacs-lisp-like
+     (defadvice org-babel-execute:sh (around sacha activate)
+       (if (assoc-default :term (ad-get-arg 1) nil)
+         (let ((buffer (make-term
+                        (assoc-default :session (ad-get-arg 1) "doug") "/bin/bash")))
+           (with-current-buffer buffer
+             (insert (org-babel-expand-body:generic
+                  body params (org-babel-variable-assignments:sh params)))
+             (term-send-input))
+           (pop-to-buffer buffer))
+         ad-do-it))
+ #+end_src
+
+#+begin_src sh :term t :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
   pwd
   cp ../dotSpacemacsForLiterateDataScience .
   cp ../dotSpacemacsForLiterateDataScience.env .
@@ -1080,7 +1122,7 @@ docker volume rm LDSEmacsDir
     FROM dperrin/spacemacs_literate_datascience
     USER root
 
-    RUN wget -q https://xpra.org/gpg.asc -O- | sudo apt-key add -
+    RUN wget -q https://xpra.org/gpg.asc -O- |  apt-key add -
     # add XPRA repository
     RUN  add-apt-repository "deb https://xpra.org/ bionic main"
     RUN apt-get update
@@ -1119,56 +1161,64 @@ docker volume rm LDSEmacsDir
 
 ** Full dev env add slime stuff
  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_FullDev")
-      FROM dperrin/spacemacs_literate_datascience
-      USER root
-      RUN apt-get update
+   FROM dperrin/spacemacs_literate_datascience
+   USER root
+   RUN apt-get update
 
 
-      RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install sbcl sbcl-doc sbcl-source
-      RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install slime 
+   RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install sbcl sbcl-doc sbcl-source
+   RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install slime 
 
-      USER emacs
-      WORKDIR /home/emacs
 
-      COPY FirstRunLisp.lisp FirstRunLisp.lisp  
-      RUN mkdir quicklisp/
-      RUN mv FirstRunLisp.lisp quicklisp/
-      WORKDIR /home/emacs/quicklisp/
-      RUN wget https://beta.quicklisp.org/quicklisp.lisp
-      RUN git clone https://github.com/slime/slime.git
-      RUN sbcl --load /home/emacs/quicklisp/quicklisp.lisp --sccript FirstRunLisp.lisp
+   USER root
+   RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+   RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+   RUN add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+   RUN apt-get update
+   RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install docker-ce
 
-      USER root
-      RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-      RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-      RUN add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-      RUN apt-get update
-      RUN DEBIAN_FRONTEND='noninteractive' apt-get -y install docker-ce
+   RUN curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+   RUN chmod +x /usr/local/bin/docker-compose  
+   #RUN ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+   RUN groupmod -g 1001 docker
+   RUN usermod -aG docker emacs 
 
-      RUN curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-      RUN chmod +x /usr/local/bin/docker-compose  
-      #RUN ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
-      RUN groupmod -g 1001 docker
-      RUN usermod -aG docker emacs 
+   RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+   #RUN echo "deb https://apt.kubernetes.io/ $(lsb_release -cs) main" | tee -a /etc/apt/sources.list.d/kubernetes.list
+   RUN echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | tee -a /etc/apt/sources.list.d/kubernetes.list
+   RUN apt-get update
+   RUN apt-get install -y kubectl
 
-      RUN curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-      #RUN echo "deb https://apt.kubernetes.io/ $(lsb_release -cs) main" | tee -a /etc/apt/sources.list.d/kubernetes.list
-      RUN echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | tee -a /etc/apt/sources.list.d/kubernetes.list
-      RUN apt-get update
-      RUN apt-get install -y kubectl
+   #AWS
+   RUN apt-get install -y awscli
+   RUN apt-get -y install jq
+   COPY FixSSHPermitions.sh /bin/FixSSHPermitions.sh
+   RUN chmod +x /bin/FixSSHPermitions.sh
 
-      #AWS
-      RUN apt-get install -y awscli
-      RUN apt-get -y install jq
-      COPY FixSSHPermitions.sh /bin/FixSSHPermitions.sh
-      RUN chmod +x /bin/FixSSHPermitions.sh
-    
-      #LSP for python
-      RUN pip install 'python-language-server[all]'
-      USER emacs
-      WORKDIR /home/emacs
-      #CMD ["bash", "-c", "emacs; /bin/bash"] 
-      ENTRYPOINT /bin/FixSSHPermitions.sh; emacs; /bin/bash
+   #LSP for python
+   RUN rm -rf /usr/bin/python /usr/bin/pip && \
+     ln -s /usr/bin/python3 /usr/bin/python && \
+     ln -s /usr/bin/pip3 /usr/bin/pip
+  
+   #RUN pip install --upgrade pip
+   #RUN pip install 'python-language-server[all]'
+   #RUN pip install "ptvsd>=4.2"
+
+   RUN apt-get install -y rsync   
+
+   USER emacs:emacs
+   WORKDIR /home/emacs
+
+   COPY FirstRunLisp.lisp FirstRunLisp.lisp  
+   RUN mkdir quicklisp/
+   RUN mv FirstRunLisp.lisp quicklisp/
+   WORKDIR /home/emacs/quicklisp/
+   RUN wget https://beta.quicklisp.org/quicklisp.lisp
+   RUN git clone https://github.com/slime/slime.git
+   RUN sbcl --load /home/emacs/quicklisp/quicklisp.lisp --sccript FirstRunLisp.lisp
+
+   #CMD ["bash", "-c", "emacs; /bin/bash"] 
+   ENTRYPOINT /bin/FixSSHPermitions.sh; emacs; /bin/bash
 
 #+end_src
  #+begin_src lisp :tangle (concat *TrampPrefix* *DockerFiles* "FirstRunLisp.lisp")
@@ -1208,51 +1258,13 @@ docker volume rm LDSEmacsDir
 
 
    
-#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer :tangle ~/Workdir/dockermacs :tangle-mode (identity #o700)
-  export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
-  mkdir /home/dperrin/Workdir 2> /dev/null
-  chmod g+w /home/dperrin/Workdir 
-  docker run --rm --name emacs \
-         -v /tmp/.X11-unix:/tmp/.X11-unix \
-         -v /var/run/docker.sock:/var/run/docker.sock \
-         -v dotEmacsDir:/home/emacs/.emacs.d \
-         -v /home/dperrin/quicklisp/:/home/emacs/quicklisp/ \
-         -v /home/dperrin/Dropbox/dotFiles/dotspacemacs-tangled.el:/home/emacs/.spacemacs \
-         -v /home/dperrin/Workdir:/home/emacs/Workdir \
-         -v /home/dperrin/Dropbox/:/home/emacs/Dropbox/ \
-         -v /home/dperrin/.gitconfig:/home/emacs/.gitconfig \
-         -v /home/dperrin/.ssh:/home/emacs/.ssh \
-         -v /home/dperrin/.docker:/home/emacs/.docker \
-         -v /home/dperrin/.aws:/home/emacs/.aws \
-         -u $(id -u dperrin):$(getent group docker | cut -d: -f3) \
-         -e TZ=America/New_York \
-         -e DISPLAY=$DISPLAY dperrin/spacemacs_full_dev
- #+end_src
-  
-#+begin_src bash :dir `,*TrampPrefix* :var dockerName=`,*docker_id* :results raw drawer :tangle ~/Workdir/dockermacs-base :tangle-mode (identity #o700)
-  export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2; exit;}'):0.0
-  mkdir /home/dperrin/Workdir 2> /dev/null
-  chmod g+w /home/dperrin/Workdir 
-  docker run --rm --name emacs \
-         -v /tmp/.X11-unix:/tmp/.X11-unix \
-         -v /var/run/docker.sock:/var/run/docker.sock \
-         -v /home/dperrin/quicklisp/:/home/emacs/quicklisp/ \
-         -v /home/dperrin/Workdir:/home/emacs/Workdir \
-         -v /home/dperrin/Dropbox/:/home/emacs/Dropbox/ \
-         -v /home/dperrin/.gitconfig:/home/emacs/.gitconfig \
-         -v /home/dperrin/.ssh:/home/emacs/.ssh \
-         -v /home/dperrin/.aws:/home/emacs/.aws \
-         -u $(id -u dperrin):$(getent group docker | cut -d: -f3) \
-         -e TZ=America/New_York \
-         -e DISPLAY=$DISPLAY dperrin/spacemacs_full_dev
- #+end_src
  
-** Without XWindows 
+*** Without XWindows 
   #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_FullDev_Xless")
     FROM dperrin/spacemacs_full_dev
     USER root
 
-    RUN wget -q https://xpra.org/gpg.asc -O- | sudo apt-key add -
+    RUN wget -q https://xpra.org/gpg.asc -O- | apt-key add -
     # add XPRA repository
     RUN  add-apt-repository "deb https://xpra.org/ bionic main"
     RUN apt-get update
@@ -1261,6 +1273,15 @@ docker volume rm LDSEmacsDir
 
     RUN usermod -a -G xpra emacs
 
+    RUN apt-get install -y libpng-dev \
+              libpoppler-dev \
+              libpoppler-glib-dev \
+              libpoppler-private-dev \
+              libz-dev
+    #Enable mounting shared drives 
+    RUN apt-get update
+    RUN apt-get install cifs-utils
+    RUN echo "emacs:emacs" | chpasswd
     USER emacs
     WORKDIR /home/emacs
     #CMD ["bash", "-c", "emacs; /bin/bash"] 
