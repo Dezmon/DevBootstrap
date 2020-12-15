@@ -256,73 +256,74 @@ https://stackoverflow.com/questions/40260655/does-google-allow-businesses-to-use
         
 ** Build emacs
  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-emacs_base")
-   FROM ubuntu:20.04
+      FROM ubuntu:20.04
 
-   # basic stuff
-   RUN echo 'APT::Get::Assume-Yes "true";' >> /etc/apt/apt.conf 
+      # basic stuff
+      RUN echo 'APT::Get::Assume-Yes "true";' >> /etc/apt/apt.conf 
 
-   RUN apt-get update --fix-missing
-   ENV DEBIAN_FRONTEND=noninteractive
+      RUN apt-get update --fix-missing
+      ENV DEBIAN_FRONTEND=noninteractive
+      RUN apt-get clean 
+      RUN apt-get install -y bash \
+          build-essential \
+          dbus-x11 \ 
+          fontconfig \
+          git \
+          curl \
+          gzip \
+          language-pack-en-base \
+          make sudo tar unzip \
+          wget apt-utils automake \
+          libjpeg-dev libncurses5-dev libgl1-mesa-glx 
 
-   RUN apt-get install -y bash 
-   RUN apt-get install -y build-essential 
-   RUN apt-get install -y dbus-x11 
-   RUN apt-get install -y fontconfig 
-   RUN apt-get install -y git 
-   RUN apt-get install -y curl 
-   RUN apt-get install -y gzip 
-   RUN apt-get install -y language-pack-en-base 
-   RUN apt-get install -y make sudo tar unzip 
-   RUN apt-get install -y wget apt-utils automake 
-   RUN apt-get install -y libjpeg-dev libncurses5-dev libgl1-mesa-glx 
+      ENV TZ=America/New_York 
+      RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+      RUN apt-get install tzdata
 
-   ENV TZ=America/New_York 
-   RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-   RUN apt-get install tzdata
+      RUN apt-get install -y libgif-dev \
+          libpng-dev \
+          libxpm-dev \
+          libgtk-3-dev \
+          libgnutls28-dev \
+          libmagickcore-dev \
+          libmagick++-dev \
+          texinfo libtiff5-dev \
+          webkit2gtk-4.0 \
+          libjansson-dev \
+          ispell \
+          ghostscript \
+          imagemagick 
 
-   RUN apt-get install -y libgif-dev 
-   RUN apt-get install -y libpng-dev 
-   RUN apt-get install -y libxpm-dev 
-   RUN apt-get install -y libgtk-3-dev 
-   RUN apt-get install -y libgnutls28-dev 
-   RUN apt-get install -y libmagickcore-dev 
-   RUN apt-get install -y libmagick++-dev 
-   RUN apt-get install -y texinfo libtiff5-dev 
-   RUN apt-get install  -y webkit2gtk-4.0
-   RUN apt-get install -y libjansson-dev
-   RUN  apt-get install ispell
-   RUN  apt-get install ghostscript 
-   RUN  apt-get install imagemagick 
-   RUN git clone --depth 1 --branch release https://github.com/adobe-fonts/source-code-pro.git ~/.fonts/adobe-fonts/source-code-pro && \
-      fc-cache -f -v ~/.fonts/adobe-fonts/source-code-pro
-   RUN  git clone -b master git://git.sv.gnu.org/emacs.git
-   RUN cd emacs/ && \
-     ./autogen.sh && \
-     ./configure --with-imagemagick --with-xwidgets
+      RUN git clone --depth 1 --branch release https://github.com/adobe-fonts/source-code-pro.git ~/.fonts/adobe-fonts/source-code-pro && \
+         fc-cache -f -v ~/.fonts/adobe-fonts/source-code-pro
+      RUN  git clone -b master git://git.sv.gnu.org/emacs.git
+      RUN cd emacs/ && \
+        ./autogen.sh && \
+        ./configure --with-imagemagick --with-xwidgets
 
-   RUN cd emacs/ && \
-       make
-   RUN cd emacs/ && \
-     make install
+      RUN cd emacs/ && \
+          make
+      RUN cd emacs/ && \
+        make install
 
-   # Cleanup
-   RUN  apt-get purge build-essential \
-          && apt-get autoremove \
-          && rm -rf /tmp/* /var/lib/apt/lists/* /root/.cache/*
-   # ^^^^^^^ Those layers are shared ^^^^^^^
+      # Cleanup
+      RUN  apt-get purge build-essential \
+             && apt-get autoremove \
+             && rm -rf /tmp/* /var/lib/apt/lists/* /root/.cache/*
+      # ^^^^^^^ Those layers are shared ^^^^^^^
 
-   # Emacs
-   RUN useradd -d /home/emacs -ms /bin/bash -G sudo -p emacs emacs
-   RUN echo "emacs:emacs" | chpasswd
+      # Emacs
+      RUN useradd -d /home/emacs -ms /bin/bash -G sudo -p emacs emacs
+      RUN echo "emacs:emacs" | chpasswd
 
-   WORKDIR /home/emacs
-   RUN mkdir .emacs.d  && chown emacs .emacs.d
-   RUN mkdir dotFiles  && chown emacs dotFiles
-   VOLUME .emacs.d
-   VOLUME dotfiles
-   USER emacs
+      WORKDIR /home/emacs
+      RUN mkdir .emacs.d  && chown emacs .emacs.d
+      RUN mkdir dotFiles  && chown emacs dotFiles
+      VOLUME .emacs.d
+      VOLUME dotfiles
+      USER emacs
 
-   CMD ["bash", "-c", "emacs; /bin/bash"] 
+      CMD ["bash", "-c", "emacs; /bin/bash"] 
 #+end_src
 #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* ".dockerignore")
 Dockerfile 
@@ -335,7 +336,9 @@ spacemacs-tangled.el
 #+name:BuildEmacs
 #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent
   cp Dockerfile-emacs_base Dockerfile
-  docker build -t dperrin/emacs_base .
+  #safest but slow
+  docker build --no-cache -t dperrin/emacs_base .
+  #docker build -t dperrin/emacs_base .
   echo Built dperrin/emacs_base
 #+end_src
 
@@ -411,7 +414,7 @@ spacemacs-tangled.el
   cp ../dotSpacemacs.env .
   cp ../dotSpacemacs .
   cp Dockerfile-spacemacs_base Dockerfile
-  docker build -t dperrin/spacemacs_base .
+  docker build --no-cache -t dperrin/spacemacs_base .
 #+end_src
 
  #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
@@ -451,7 +454,9 @@ spacemacs-tangled.el
 *** build images
 #+begin_src bash :term *dockerBuild*  :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
   cp Dockerfile-latex Dockerfile
+  #docker build --no-cache -t dperrin/spacemacs_latex .
   docker build -t dperrin/spacemacs_latex .
+  exit
 #+end_src
 
  #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
@@ -497,20 +502,6 @@ spacemacs-tangled.el
    #exit
  #+end_src
 
-*** push to dockerhub
-#+begin_src :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
-   docker tag dperrin/$dockerName dperrin/$dockerName:latest
-  docker push dperrin/$dockerName:latest
-  exit
-#+end_src
-
- #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
-   docker tag dperrin/spacemacs_literate_datascience dperrin/spacemacs_literate_datascience:stable
-   docker push dperrin/spacemacs_literate_datascience:stable
-   exit
- #+end_src
- 
- 
 ** Literate Data Science
  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_LiterateDataScience")
    FROM dperrin/spacemacs_latex
