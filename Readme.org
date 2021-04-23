@@ -235,7 +235,7 @@ https://stackoverflow.com/questions/40260655/does-google-allow-businesses-to-use
 
 * Dockerize
 :PROPERTIES:
-  :header-args:bash+: :var versionNumber='2.0'
+  :header-args:bash+: :var versionNumber='3.0'
   :END:
 ** layering
    - add versions to dockerhub push
@@ -333,6 +333,9 @@ spacemacs-tangled.el
 .dockerignore
 #+end_src
 *** build images
+:PROPERTIES:
+  :header-args:bash+:          :var dockerfile='Dockerfile-emacs_base' dockerName='emacs_base'
+  :END:
 #+name:BuildEmacs
 #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent
   cp Dockerfile-emacs_base Dockerfile
@@ -343,8 +346,8 @@ spacemacs-tangled.el
 #+end_src
 
  #+begin_src bash :term dockerpush  :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
-   docker tag dperrin/emacs_base dperrin/emacs_base:$versionNumber
    docker push dperrin/emacs_base:$versionNumber
+   docker push dperrin/emacs_base:latest
  #+end_src
 *** testing with xless
 :PROPERTIES:
@@ -380,7 +383,9 @@ spacemacs-tangled.el
 **** build images    
  #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
    cp $dockerfile Dockerfile
-   docker build -t dperrin/$dockerName .
+   docker build -t dperrin/$dockerName:$versionNumber .
+   docker tag dperrin/$dockerName:$versionNumber dperrin/$dockerName:latest
+   #exit
    #exit
  #+end_src
 
@@ -410,11 +415,17 @@ spacemacs-tangled.el
    CMD ["bash", "-c", "emacs; /bin/bash"] 
 #+end_src
 *** build images
+:PROPERTIES:
+  :header-args:bash+:          :var dockerfile='Dockerfile-spacemacs_base' dockerName='spacemacs_base'
+  :END:
 #+begin_src bash :term *dockerBuild*  :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
   cp ../dotSpacemacs.env .
   cp ../dotSpacemacs .
-  cp Dockerfile-spacemacs_base Dockerfile
-  docker build --no-cache -t dperrin/spacemacs_base .
+  cp $dockerfile Dockerfile
+  docker build -t dperrin/$dockerName:$versionNumber .
+  #docker build --no-cache -t dperrin/$dockerName:$versionNumber .
+  docker tag dperrin/$dockerName:$versionNumber dperrin/$dockerName:latest
+   #exit
 #+end_src
 
  #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
@@ -441,7 +452,7 @@ spacemacs-tangled.el
    RUN apt install -y texlive-latex-extra
    RUN apt install -y texlive-science
    RUN apt install -y texlive-fonts-extra
-    
+   RUN apt install texlive-font-utils
 
    ##### User space
    USER emacs:emacs
@@ -452,18 +463,21 @@ spacemacs-tangled.el
    CMD ["bash", "-c", "emacs; /bin/bash"] 
 #+end_src
 *** build images
-#+begin_src bash :term *dockerBuild*  :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
-  cp Dockerfile-latex Dockerfile
-  #docker build --no-cache -t dperrin/spacemacs_latex .
-  docker build -t dperrin/spacemacs_latex .
-  exit
-#+end_src
+:PROPERTIES:
+  :header-args:bash+:          :var dockerfile='Dockerfile-latex' dockerName='spacemacs_latex'
+  :END:
 
- #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
-   docker tag dperrin/spacemacs_latex dperrin/spacemacs_latex:$versionNumber
-   docker push dperrin/spacemacs_latex:$versionNumber
+ #+begin_src bash  :term dockerbuild :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   cp $dockerfile Dockerfile
+   docker build --squash -t dperrin/$dockerName:$versionNumber .
+   # docker tag dperrin/$dockerName:$versionNumber dperrin/$dockerName:latest
+   #exit
  #+end_src
 
+ #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   #docker push dperrin/$dockerName:$latest
+   docker push dperrin/$dockerName:$versionNumber
+ #+end_src
 *** testing with xless
 :PROPERTIES:
   :header-args:bash+:          :var dockerfile='Dockerfile-spacemacs_latex_xless' dockerName='spacemacs_latex_xless'
@@ -498,13 +512,14 @@ spacemacs-tangled.el
 **** build images    
  #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
    cp $dockerfile Dockerfile
-   docker build -t dperrin/$dockerName .
+   docker build -t dperrin/$dockerName:$versionNumber .
+   docker tag dperrin/$dockerName:$versionNumber dperrin/$dockerName:latest
    #exit
  #+end_src
 
-** Literate Data Science
+** Literate Data Science (need to be re-integrated in image stack)
  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_LiterateDataScience")
-   FROM dperrin/spacemacs_latex
+   FROM dperrin/spacemacs_latex:3.0
    USER root
    ENV DEBIAN_FRONTEND=noninteractive 
    ENV TZ=America/New_York 
@@ -1174,7 +1189,7 @@ spacemacs-tangled.el
   cp ../dotSpacemacsForLiterateDataScience.env .
   cp Dockerfile-spacemacs_LiterateDataScience Dockerfile
   git clone --branch master git@github.com:Dezmon/LiterateComputationalScience.git
-  docker build -t dperrin/spacemacs_literate_datascience .
+  docker build --squash -t dperrin/spacemacs_literate_datascience .
   rm -rf LiterateComputationalScience
 #+end_src
 
@@ -1182,7 +1197,7 @@ spacemacs-tangled.el
 
 *** push to dockerhub
 #+begin_src bash  :session uploading :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
-   docker tag dperrin/spacemacs_literate_datascience:dev dperrin/spacemacs_literate_datascience:$versionNumber
+   docker tag dperrin/spacemacs_literate_datascience dperrin/spacemacs_literate_datascience:$versionNumber
   docker push dperrin/spacemacs_literate_datascience:$versionNumber
   exit
 #+end_src
@@ -1194,7 +1209,7 @@ spacemacs-tangled.el
  #+end_src
 *** Without XWindows 
   #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_LiterateDataScience_Xless")
-    FROM dperrin/spacemacs_literate_datascience
+    FROM dperrin/spacemacs_literate_datascience:3.0
     USER root
 
     RUN wget -q https://xpra.org/gpg.asc -O- |  apt-key add -
@@ -1214,10 +1229,10 @@ spacemacs-tangled.el
 **** build images
  #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results raw drawer 
    cp Dockerfile-spacemacs_LiterateDataScience_Xless Dockerfile
-   docker build -t dperrin/spacemacs_literate_datascience_xless .
+   docker build --squash -t dperrin/spacemacs_literate_datascience_xless:$versionNumber .
  #+end_src
  #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results raw drawer
-   docker push dperrin/spacemacs_literate_datascience_xless
+   docker push dperrin/spacemacs_literate_datascience_xless:$versionNumber
  #+end_src
 
  #+begin_src bash  :session dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
@@ -1299,10 +1314,15 @@ spacemacs-tangled.el
 **** build images    
  #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
    cp $dockerfile Dockerfile
-   docker build -t dperrin/$dockerName .
+   docker build --squash -t dperrin/$dockerName:$versionNumber .
+   docker tag dperrin/$dockerName:$versionNumber dperrin/$dockerName:latest
    #exit
  #+end_src
  
+ #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker push dperrin/$dockerName:$latest
+   docker push dperrin/$dockerName:$versionNumber
+ #+end_src
 *** stack
 :PROPERTIES:
   :header-args:bash+:          :var dockerfile='Dockerfile-spacemacs_fulldev_stack' dockerName='spacemacs_fulldev_stack'
@@ -1354,8 +1374,13 @@ spacemacs-tangled.el
 **** build images    
  #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
    cp $dockerfile Dockerfile
-   docker build -t dperrin/$dockerName .
+   docker build  -t dperrin/$dockerName:$versionNumber .
+   docker tag dperrin/$dockerName:$versionNumber dperrin/$dockerName:latest
    #exit
+ #+end_src
+ #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker push dperrin/$dockerName:$latest
+   docker push dperrin/$dockerName:$versionNumber
  #+end_src
 
 *** lisp
@@ -1393,8 +1418,14 @@ spacemacs-tangled.el
 **** build images    
  #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
    cp $dockerfile Dockerfile
-   docker build -t dperrin/$dockerName .
-   #exit
+   docker build -t dperrin/$dockerName:$versionNumber .
+   docker tag dperrin/$dockerName:$versionNumber dperrin/$dockerName:latest
+   exit
+ #+end_src
+
+ #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker push dperrin/$dockerName:$latest
+   docker push dperrin/$dockerName:$versionNumber
  #+end_src
 *** conda
 :PROPERTIES:
@@ -1428,8 +1459,13 @@ spacemacs-tangled.el
 **** build images    
  #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
    cp $dockerfile Dockerfile
-   docker build -t dperrin/$dockerName .
-   #exit
+   docker build -t dperrin/$dockerName:$versionNumber .
+   docker tag dperrin/$dockerName:$versionNumber dperrin/$dockerName:latest
+   exit
+ #+end_src
+ #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker push dperrin/$dockerName:$latest
+   docker push dperrin/$dockerName:$versionNumber
  #+end_src
 *** R
 :PROPERTIES:
@@ -1461,8 +1497,13 @@ spacemacs-tangled.el
 **** build images    
  #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
    cp $dockerfile Dockerfile
-   docker build -t dperrin/$dockerName .
+   docker build -t dperrin/$dockerName:$versionNumber .
+   docker tag dperrin/$dockerName:$versionNumber dperrin/$dockerName:latest
    #exit
+ #+end_src
+ #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker push dperrin/$dockerName:$latest
+   docker push dperrin/$dockerName:$versionNumber
  #+end_src
 
 *** LSP
@@ -1496,8 +1537,13 @@ spacemacs-tangled.el
 **** build images    
  #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
    cp $dockerfile Dockerfile
-   docker build -t dperrin/$dockerName .
-   #exit
+   docker build -t dperrin/$dockerName:$versionNumber .
+   docker tag dperrin/$dockerName:$versionNumber dperrin/$dockerName:latest
+   exit
+ #+end_src
+ #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
+   docker push dperrin/$dockerName:$latest
+   docker push dperrin/$dockerName:$versionNumber
  #+end_src
 *** Without XWindows 
   :PROPERTIES:
@@ -1508,18 +1554,33 @@ spacemacs-tangled.el
    echo $dockerfile 
    echo $versionNumber
  #+end_src
-
+ 
   #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-spacemacs_FullDev_Xless")
     FROM dperrin/spacemacs_fulldev_lsp
     USER root
+    WORKDIR /root
 
     RUN wget -q https://xpra.org/gpg.asc -O- | apt-key add -
     # add XPRA repository
-    RUN  add-apt-repository "deb https://xpra.org/ focal main"
+    #RUN  add-apt-repository "deb https://xpra.org/ focal main"
     RUN apt-get update
     # install XPRA package
-    RUN apt-get install xpra
-
+    #RUN apt-get install xpra
+    RUN apt-get install libx11-dev libxtst-dev libxcomposite-dev libxdamage-dev libxkbfile-dev python-all-dev pandoc libsystemd-dev
+    RUN apt-get install xauth x11-xkb-utils libgtk-3-dev python3-dev python3-cairo-dev python-gi-dev cython3 
+    RUN apt-get install libpam-dev quilt xserver-xorg-dev xutils-dev xserver-xorg-video-dummy xvfb keyboard-configuration
+    RUN apt-get install libturbojpeg-dev libwebp-dev python3-pil
+    RUN apt-get install openssh-client sshpass python3-paramiko
+    RUN apt-get install python3-setproctitle python3-xdg python3-pyinotify python3-opencv
+    RUN apt-get install uglifyjs brotli libjs-jquery libjs-jquery-ui gnome-backgrounds
+    RUN apt-get install python3-rencode python3-lz4 python3-dbus python3-cryptography python3-netifaces python3-yaml python3-lzo
+    RUN git clone https://github.com/Xpra-org/xpra
+    RUN git clone https://github.com/Xpra-org/xpra-html5
+    WORKDIR xpra-html5
+    RUN ./setup.py install /usr/share/www/xpra
+    WORKDIR ../xpra
+    RUN python3 setup.py  install
+    RUN groupadd xpra
     RUN usermod -a -G xpra emacs
 
     RUN apt-get install -y libpng-dev \
@@ -1528,30 +1589,68 @@ spacemacs-tangled.el
               libpoppler-private-dev \
               libz-dev
     #Enable mounting shared drives 
-    RUN apt-get update
+    RUN apt-get update 
     RUN apt-get install cifs-utils
     RUN echo "emacs:emacs" | chpasswd
     USER emacs
     WORKDIR /home/emacs
     #CMD ["bash", "-c", "emacs; /bin/bash"] 
-    ENTRYPOINT /bin/FixSSHPermitions.sh; xpra start --bind-tcp=0.0.0.0:9876 --exit-with-children --html=on --start-child=emacs --start-child=xterm --daemon=no
+    #ENTRYPOINT /bin/FixSSHPermitions.sh; xpra start --bind-tcp=0.0.0.0:9876 --exit-with-children --html=on --start-child=emacs --start-child=xterm --daemon=no
+    ENTRYPOINT /bin/FixSSHPermitions.sh;bash       
  #+end_src
 **** build images    
  #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
    cp $dockerfile Dockerfile
-   docker build -t dperrin/$dockerName .
-   #exit
+   docker build -t dperrin/$dockerName:$versionNumber .
+   #docker tag dperrin/$dockerName:$versionNumber dperrin/$dockerName:latest
+   exit
  #+end_src
  
  #+begin_src bash  :term dockerpush :dir (concat *TrampPrefix* *DockerFiles*)  :results silent
-   docker tag dperrin/spacemacs_full_dev_xless dperrin/spacemacs_full_dev_xless:$versionNumber
-   docker push dperrin/spacemacs_full_dev_xless:$versionNumber
+   docker push dperrin/$dockerName:$latest
+   docker push dperrin/$dockerName:$versionNumber
  #+end_src
+ 
+ #+begin_src bash :term *dockerBuild* :dir (concat *TrampPrefix* *DockerFiles*) :results silent 
+   docker tag short_stack dperrin/$dockerName:test
+   docker push dperrin/$dockerName:test
+   #exit
+ #+end_src
+
+*** local build for UID maping
+  :PROPERTIES:
+  :header-args:bash+: :var dockerfile='Dockerfile-uidmap' dockerName='localdev'
+  :END:
+
+ #+begin_src bash  :dir (concat *TrampPrefix* *DockerFiles*) :results raw drawer
+   echo $dockerfile 
+   echo $versionNumber
+ #+end_src
+
+  #+begin_src text :tangle (concat *TrampPrefix* *DockerFiles* "Dockerfile-uidmap")
+        FROM dperrin/spacemacs_full_dev_xless:3.0
+        USER root
+        ARG UID=1000
+        ARG GID=1000
+        RUN usermod -u ${UID} emacs 
+        RUN usermod -g ${GID} emacs 
+        USER emacs
+        WORKDIR /home/emacs
+        ENTRYPOINT /bin/FixSSHPermitions.sh; xpra start --bind-tcp=0.0.0.0:9876 --auto-refresh-delay=0.01 --exit-with-children --html=on --start-child=emacs --start-child=xterm --daemon=no
+ #+end_src
+**** build images    
+ #+begin_src bash :dir (concat *TrampPrefix* *DockerFiles*) :results raw drawer
+   cd $(pwd)
+   cp $dockerfile Dockerfile
+   echo docker build --build-arg GID=$(id -g) --build-arg UID=$(id -u) -t dperrin/$dockerName:$versionNumber .
+ #+end_src
+
+ 
  
 
 *** build all push
     To be done..... 
-
+    
 * File Local Variables
 # This Must be at the end of the file 
 # Local Variables: 
